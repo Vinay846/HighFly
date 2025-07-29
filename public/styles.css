@@ -1139,7 +1139,6 @@ body {
     text-align: center;
     font-size: 14px;
     backdrop-filter: blur(10px);
-    display: none;
 }
 
 .toast.error {
