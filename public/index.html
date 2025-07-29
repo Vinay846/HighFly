@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlyHigh - Crash Game with PixiJS</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- PixiJS Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+    <style>
+        /* Enhanced styles for auto-cashout section */
+        .auto-cashout-section {
+            display: none;
+            /* margin-top: 10px;
+            padding: 12px; */
+            background: rgba(255, 255, 255, 0.05);
+            /* border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1); */
+            transition: all 0.3s ease;
+        }
+        
+        .auto-cashout-section.show {
+            /* display: block; */
+        }
+        
+        .auto-cashout-section.enabled {
+            /* background: rgba(0, 255, 0, 0.1);
+            border-color: rgba(0, 255, 0, 0.3); */
+        }
+        
+        .auto-cashout-checkbox {
+            display: flex;
+            align-items: center;
+            /* margin-bottom: 8px; */
+            cursor: pointer;
+        }
+        
+        .auto-cashout-checkbox input[type="checkbox"] {
+            margin-right: 8px;
+            transform: scale(1.2);
+            cursor: pointer;
+        }
+        
+        .auto-cashout-checkbox label {
+            color: #ffffff;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .auto-cashout-input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            /* margin-top: 8px; */
+        }
+        
+        .auto-cashout-input-group label {
+            color: #fff;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .auto-cashout-input {
+            flex: 1;
+            /* padding: 6px 8px; */
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            /* border-radius: 4px; */
+            color: #ffffff;
+            /* font-size: 13px; */
+            text-align: center;
+        }
+        
+        .auto-cashout-input:focus {
+            outline: none;
+            border-color: rgba(0, 255, 0, 0.5);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .auto-cashout-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Enhanced multiplier display styles */
+        .multiplier-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            font-weight: bold;
+            color: rgb(255, 255, 255);
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            z-index: 100;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+        
+        .multiplier-display.crashed {
+            color: #ffffff !important;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            animation: flyAwayPulse 0.5s ease-in-out;
+            font-size: 2.5rem;
+            z-index: 200;
+        }
+        
+        @keyframes flyAwayPulse {
+            0% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.1); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+        
+        /* Enhanced game status styles */
+        .game-status.crashed {
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+        }
+        
+        /* Enhanced bet mode toggle styles */
+        .bet-mode-option {
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+        }
+        
+        .bet-mode-option.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        
+        .bet-mode-option input:disabled {
+            cursor: not-allowed;
+        }
+        
+        /* Enhanced countdown loader styles */
+        .countdown-container {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translateX(-50%);
+            /* background: rgba(0, 0, 0, 0.8); */
+            padding: 20px 30px;
+            /* border-radius: 12px; */
+            /* border: 2px solid rgba(255, 255, 255, 0.2); */
+            z-index: 150;
+            min-width: 250px;
+            text-align: center;
+            /* backdrop-filter: blur(10px); */
+        }
+        
+        .countdown-container.hidden {
+            display: none !important;
+        }
+        
+        .countdown-text {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        /* .countdown-bar-container {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+        } */
+        
+        /* .countdown-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00cc6a);
+            border-radius: 3px;
+            transition: width 0.1s linear;
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+        } */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="left-header">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="logo"></div>
+            </div>
+            <div class="user-info">
+                <a href="#" class="how-to-play">How to play</a>
+                <div class="user-name">Shreya</div>
+                <div class="balance">₹<span id="balance">5000.00</span> INR</div>
+            </div>
+        </div>
+
+        <!-- History Trail -->
+        <div class="history-trail-mobile">
+            <div class="history-items" id="historyItemsMobile">
+                <!-- History items will be populated here for mobile -->
+            </div>
+            <button class="history-toggle" onclick="toggleHistoryTrailMobile()">
+                <img src="./assets/images/history-grey.svg" alt="History" style="width: 16px; height: 16px;">
+                <span>History</span>
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Sidebar -->
+            <div class="sidebar" id="sidebar">
+                <div class="sidebar-title">MY BETS</div>
+                <div class="bet-headers">
+                    <div>BET X</div>
+                    <div>CASHOUT</div>
+                </div>
+                <div class="bet-list" id="betList">
+                    <!-- Bet history will be populated here -->
+                </div>
+            </div>
+
+            <!-- Game Area -->
+            <div class="game-area">
+                <div style="opacity: 0;" class="game-status" id="gameStatus">Connecting...</div>
+                
+                <div class="game-canvas" id="gameCanvas">
+                    <!-- History Trail inside game canvas -->
+                    <div class="history-trail-ingame" id="historyTrailInGame">
+                        <div class="history-items-compact" id="historyItems">
+                            <!-- History items will be populated here -->
+                        </div>
+                        <button class="history-expand-btn" onclick="toggleHistoryExpansion()">
+                            <img src="./assets/images/history-grey.svg" alt="History" style="width: 16px; height: 16px;">
+                             <span>History</span>
+                        </button>
+                    </div>
+                    
+                    <!-- Game Logo - shows during pause state -->
+                    <div class="game-logo" id="gameLogo"></div>
+                    
+                    <!-- Countdown Container - positioned below game logo -->
+                    <div class="countdown-container hidden" id="countdownContainer">
+                        <div class="countdown-text" id="countdownText">Accepting bets - 5.0s</div>
+                        <div class="countdown-bar-container">
+                            <div class="countdown-bar" id="countdownBar"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Multiplier Display - shows during game -->
+                    <div class="multiplier-display" id="multiplierDisplay">1.00x</div>
+                    
+                    <!-- PixiJS Canvas will be inserted here automatically -->
+                    
+                    <!-- Legacy DOM elements for fallback (hidden when PixiJS is active) -->
+                    <div class="trail-container" id="trailContainer" style="display: none;">
+                        <!-- Trail segments will be dynamically created -->
+                    </div>
+                    
+                    <!-- Legacy Rocket with PNG Image (hidden when PixiJS is active) -->
+                    <div class="rocket" id="rocket" style="display: none;">
+                        <img src="./assets/images/fly.png" alt="Rocket" class="rocket-image">
+                    </div>
+                </div>
+
+                <!-- Control Panel -->
+                <div class="control-panel">
+                    <!-- First Bet Section -->
+                    <div class="bet-section">
+                        <div class="bet-spot">
+                            <div class="bet-options">
+                                <div class="bet-mode-toggle">
+                                    <label class="bet-mode-option">
+                                        <input type="radio" name="betMode1" value="bet" checked onchange="setBetMode('bet', 1)">
+                                        <span>BET</span>
+                                    </label>
+                                    <label class="bet-mode-option">
+                                        <input type="radio" name="betMode1" value="auto" onchange="setBetMode('auto', 1)">
+                                        <span>AUTO</span>
+                                    </label>
+                                </div>
+                                
+                                <div class="auto-cashout-section" id="autoCashoutSection1">
+                                    <div class="auto-cashout-checkbox">
+                                        <input type="checkbox" id="autoCashoutCheckbox1" onchange="toggleAutoCashout(1)">
+                                    </div>
+                                    
+                                    <div class="auto-cashout-input-group">
+                                        <label for="autoCashoutValue1">AUTO CASH OUT</label>
+                                        <input type="number" class="auto-cashout-input" id="autoCashoutValue1" value="1.10" step="0.01" min="1.01" onchange="updateAutoCashout(1)" disabled>
+                                        <span style="color: #cccccc; font-size: 12px;">X</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bet-controls">
+                                <div class="bet-amount-container">
+                                    <div class="bet-amount-display">
+                                        <button class="bet-adjust-btn" onclick="adjustBet(0.5, 1)">-</button>
+                                        <input type="number" class="bet-amount-input" id="betAmount1" value="100.00" min="1" step="0.01">
+                                        <button class="bet-adjust-btn" onclick="adjustBet(2, 1)">+</button>
+                                    </div>
+                                    
+                                    <div class="bet-presets">
+                                        <button class="preset-btn" onclick="setBetAmount(100, 1)">100.00</button>
+                                        <button class="preset-btn" onclick="setBetAmount(200, 1)">200.00</button>
+                                        <button class="preset-btn" onclick="setBetAmount(500, 1)">500.00</button>
+                                        <button class="preset-btn" onclick="setBetAmount(1000, 1)">1000.00</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="bet-btn">
+                                    <button class="main-action-button bet-state" id="mainActionButton1" onclick="handleMainAction(1)">
+                                        <span class="button-label">BET</span>
+                                        <span class="button-amount"><span id="mainButtonAmount1">100.00</span> INR</span>
+                                    </button>    
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Second Bet Section -->
+                    <div class="bet-section">
+                        <div class="bet-spot">
+                            <div class="bet-options">
+                                <div class="bet-mode-toggle">
+                                    <label class="bet-mode-option">
+                                        <input type="radio" name="betMode2" value="bet" checked onchange="setBetMode('bet', 2)">
+                                        <span>BET</span>
+                                    </label>
+                                    <label class="bet-mode-option">
+                                        <input type="radio" name="betMode2" value="auto" onchange="setBetMode('auto', 2)">
+                                        <span>AUTO</span>
+                                    </label>
+                                </div>
+                                
+                                <div class="auto-cashout-section" id="autoCashoutSection2">
+                                    <div class="auto-cashout-checkbox">
+                                        <input type="checkbox" id="autoCashoutCheckbox2" onchange="toggleAutoCashout(2)">
+                                    </div>
+                                    
+                                    <div class="auto-cashout-input-group">
+                                        <label for="autoCashoutValue2">AUTO CASH OUT</label>
+                                        <input type="number" class="auto-cashout-input" id="autoCashoutValue2" value="1.10" step="0.01" min="1.01" onchange="updateAutoCashout(2)" disabled>
+                                        <span style="color: #cccccc; font-size: 12px;">x</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bet-controls">
+                                <div class="bet-amount-container">
+                                    <div class="bet-amount-display">
+                                        <button class="bet-adjust-btn" onclick="adjustBet(0.5, 2)">-</button>
+                                        <input type="number" class="bet-amount-input" id="betAmount2" value="100.00" min="1" step="0.01">
+                                        <button class="bet-adjust-btn" onclick="adjustBet(2, 2)">+</button>
+                                    </div>
+                                    
+                                    <div class="bet-presets">
+                                        <button class="preset-btn" onclick="setBetAmount(100, 2)">100.00</button>
+                                        <button class="preset-btn" onclick="setBetAmount(200, 2)">200.00</button>
+                                        <button class="preset-btn" onclick="setBetAmount(500, 2)">500.00</button>
+                                        <button class="preset-btn" onclick="setBetAmount(1000, 2)">1000.00</button>
+                                    </div>
+                                </div>
+                                
+                                <div class="bet-btn">
+                                    <button class="main-action-button bet-state" id="mainActionButton2" onclick="handleMainAction(2)">
+                                        <span class="button-label">BET</span>
+                                        <span class="button-amount"><span id="mainButtonAmount2">100.00</span> INR</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Toast Messages -->
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <!-- Audio Elements -->
+    <audio id="bgMusic" loop preload="auto">
+        <source src="./assets/sounds/bgmusic.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="crashSound" preload="auto">
+        <source src="./assets/sounds/box-crash.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="cashoutSound" preload="auto">
+        <source src="./assets/sounds/cashout.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="planeSound" loop preload="auto">
+        <source src="./assets/sounds/plan.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- GSAP Animation Library (for UI animations) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <!-- Load PixiJS Rocket Animation System first -->
+    <script src="pixiRocketAnimation.js"></script>
+    
+    <!-- Sound Manager -->
+    <script src="soundManager.js"></script>
+    
+    <!-- Main Game Script -->
+    <script src="script.js"></script>
+    
+    <script>
+        // Enhanced auto-cashout functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup auto-cashout checkbox handlers
+            const setupAutoCashoutHandlers = (playerIndex) => {
+                const checkbox = document.getElementById(`autoCashoutCheckbox${playerIndex}`);
+                const input = document.getElementById(`autoCashoutValue${playerIndex}`);
+                
+                if (checkbox && input) {
+                    // Enable/disable input based on checkbox
+                    checkbox.addEventListener('change', function() {
+                        input.disabled = !this.checked;
+                        
+                        // Update visual feedback
+                        const section = document.getElementById(`autoCashoutSection${playerIndex}`);
+                        if (section) {
+                            section.classList.toggle('enabled', this.checked);
+                        }
+                        
+                        // Call the game function
+                        if (typeof toggleAutoCashout === 'function') {
+                            toggleAutoCashout(playerIndex);
+                        }
+                    });
+                    
+                    // Initial state
+                    input.disabled = !checkbox.checked;
+                }
+            };
+            
+            // Setup for both players
+            setupAutoCashoutHandlers(1);
+            setupAutoCashoutHandlers(2);
+        });
+        
+        // PixiJS Integration Status Display (for debugging)
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                if (window.rocketAnimation && window.rocketAnimation.getState) {
+                    const state = window.rocketAnimation.getState();
+                    console.log('🎮 Animation System Status:', {
+                        system: state.usingFallback ? 'DOM (Fallback)' : 'PixiJS (Canvas)',
+                        pixiVersion: typeof PIXI !== 'undefined' ? PIXI.VERSION : 'Not loaded',
+                        ready: !state.usingFallback,
+                        tabVisible: state.tabVisible
+                    });
+                }
+            }, 1000);
+        });
+        
+        // Performance monitoring
+        let frameCount = 0;
+        let lastTime = performance.now();
+        
+        function monitorPerformance() {
+            frameCount++;
+            const currentTime = performance.now();
+            
+            if (currentTime - lastTime >= 5000) { // Every 5 seconds
+                const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                console.log(`📊 Performance: ${fps} FPS`);
+                
+                if (window.rocketAnimation && window.rocketAnimation.getState) {
+                    const state = window.rocketAnimation.getState();
+                    console.log('🚀 Animation State:', {
+                        active: state.isActive,
+                        multiplier: state.multiplier?.toFixed(2),
+                        trailParticles: state.trailParticles,
+                        tabVisible: state.tabVisible,
+                        pendingAnimations: state.pendingAnimations
+                    });
+                }
+                
+                frameCount = 0;
+                lastTime = currentTime;
+            }
+            
+            requestAnimationFrame(monitorPerformance);
+        }
+        
+        // Start performance monitoring in development
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            requestAnimationFrame(monitorPerformance);
+        }
+        
+        // Sidebar positioning for mobile
+        function handleSidebarPosition() {
+            const sidebar = document.getElementById('sidebar');
+            const container = document.querySelector('.container');
+            const mainContent = document.querySelector('.main-content');
+            const isMobile = window.innerWidth <= 768;
+            
+            if (isMobile) {
+                // Move sidebar to be 4th child of container (after header, history-trail-mobile, main-content)
+                if (sidebar.parentElement !== container) {
+                    container.appendChild(sidebar);
+                }
+                // Ensure sidebar is hidden by default on mobile
+                sidebar.classList.remove('hidden');
+                if (!sidebar.classList.contains('visible')) {
+                    // Keep it collapsed initially
+                }
+            } else {
+                // Move sidebar back to main-content for desktop
+                if (sidebar.parentElement !== mainContent) {
+                    mainContent.insertBefore(sidebar, mainContent.firstChild);
+                }
+                // Remove mobile classes and ensure it's visible on desktop
+                sidebar.classList.remove('visible');
+                sidebar.classList.remove('hidden');
+            }
+        }
+        
+        // Initial positioning
+        handleSidebarPosition();
+        
+        // Handle window resize
+        window.addEventListener('resize', handleSidebarPosition);
+        
+        // Toggle history trail mobile function
+        window.toggleHistoryTrailMobile = function() {
+            const historyTrailMobile = document.querySelector('.history-trail-mobile');
+            console.log('toggleHistoryTrailMobile called', { historyTrailMobile: !!historyTrailMobile });
+            
+            if (historyTrailMobile) {
+                historyTrailMobile.classList.toggle('expanded');
+                console.log('Toggled expanded class on history-trail-mobile', historyTrailMobile.classList.contains('expanded'));
+            }
+        };
+        
+        // Toggle sidebar function (for desktop or other uses)
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            const isMobile = window.innerWidth <= 768;
+            
+            console.log('toggleSidebar called', { isMobile, sidebar: !!sidebar });
+            
+            if (sidebar) {
+                if (isMobile) {
+                    sidebar.classList.toggle('visible');
+                    console.log('Mobile: toggled visible class', sidebar.classList.contains('visible'));
+                } else {
+                    sidebar.classList.toggle('hidden');
+                    console.log('Desktop: toggled hidden class', sidebar.classList.contains('hidden'));
+                }
+            }
+        };
+        
+        window.toggleHistoryExpansion = function() {
+            const historyTrail = document.getElementById('historyTrailInGame');
+            console.log('toggleHistoryExpansion called', { historyTrail: !!historyTrail });
+            
+            if (historyTrail) {
+                historyTrail.classList.toggle('expanded');
+                console.log('Toggled expanded class', historyTrail.classList.contains('expanded'));
+            }
+        };
+    </script>
+</body>
+</html>
