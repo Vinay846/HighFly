@@ -37,8 +37,25 @@ class PixiRocketAnimationSystem {
         
         // Animation properties
         this.currentMultiplier = 1.0;
-        this.animationSpeed = 0.1;
+        this.animationSpeed = 0.08; // Optimized for ultra-smooth movement
         this.crashAnimation = null;
+        
+        // Advanced smoothing properties
+        this.positionVelocity = { x: 0, y: 0 };
+        this.smoothingFactor = 0.85; // Higher for more smoothness
+        this.lastFrameTime = performance.now();
+        this.targetChangeTime = 0;
+        this.animationProgress = 0;
+        this.lastTargetPosition = { x: 0, y: 0 };
+        
+        // Rotation smoothing
+        this.targetRotation = 0;
+        this.currentRotation = 0;
+        this.rotationVelocity = 0;
+        
+        // Easing function for ultra-smooth animation
+        this.easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+        this.easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
         
         // Initialize the system
         this.initialize();
@@ -199,9 +216,15 @@ class PixiRocketAnimationSystem {
     }
 
     setupAnimationLoop() {
+        // Configure ticker for smooth 60fps animation
+        this.app.ticker.maxFPS = 60;
+        this.app.ticker.minFPS = 30;
+        
         this.app.ticker.add((delta) => {
             if (this.tabVisible) {
-                this.updateAnimation(delta);
+                // Normalize delta for consistent animation speed
+                const normalizedDelta = Math.min(delta, 2); // Cap extreme deltas
+                this.updateAnimation(normalizedDelta);
             }
         });
         
@@ -299,15 +322,90 @@ class PixiRocketAnimationSystem {
     smoothUpdatePosition(delta) {
         if (this.isCrashing) return;
 
-        const lerpSpeed = this.animationSpeed * delta;
+        const currentTime = performance.now();
+        const frameTime = Math.min(currentTime - this.lastFrameTime, 16.67); // Cap at 60fps
+        this.lastFrameTime = currentTime;
         
-        // Smoothly move to target position using linear interpolation
-        this.currentPosition.x += (this.targetPosition.x - this.currentPosition.x) * lerpSpeed;
-        this.currentPosition.y += (this.targetPosition.y - this.currentPosition.y) * lerpSpeed;
+        // Check if target changed (new multiplier)
+        const targetChanged = Math.abs(this.targetPosition.x - this.lastTargetPosition.x) > 0.1 || 
+                             Math.abs(this.targetPosition.y - this.lastTargetPosition.y) > 0.1;
         
-        // Update rocket sprite position
-        this.rocket.x = this.currentPosition.x;
-        this.rocket.y = this.currentPosition.y;
+        if (targetChanged) {
+            this.lastTargetPosition = { ...this.targetPosition };
+            this.targetChangeTime = currentTime;
+            this.animationProgress = 0;
+        }
+        
+        // Calculate distance to target
+        const distanceX = this.targetPosition.x - this.currentPosition.x;
+        const distanceY = this.targetPosition.y - this.currentPosition.y;
+        const totalDistance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+        
+        if (totalDistance < 0.5) {
+            // Very close to target, use simple smoothing
+            const smoothFactor = 1 - Math.pow(this.smoothingFactor, frameTime / 16.67);
+            this.currentPosition.x += distanceX * smoothFactor;
+            this.currentPosition.y += distanceY * smoothFactor;
+        } else {
+            // Use advanced easing for smooth movement
+            const baseSpeed = this.animationSpeed * (frameTime / 16.67);
+            
+            // Adaptive speed based on distance (faster for larger distances)
+            const speedMultiplier = Math.min(1 + totalDistance / 200, 2.5);
+            const adjustedSpeed = baseSpeed * speedMultiplier;
+            
+            // Apply cubic easing for ultra-smooth movement
+            const easedSpeed = this.easeInOutCubic(Math.min(adjustedSpeed, 1));
+            
+            // Calculate smooth velocity with momentum
+            const targetVelocityX = distanceX * easedSpeed;
+            const targetVelocityY = distanceY * easedSpeed;
+            
+            // Apply momentum smoothing
+            const momentumFactor = 1 - Math.pow(this.smoothingFactor, frameTime / 16.67);
+            this.positionVelocity.x = this.positionVelocity.x * this.smoothingFactor + targetVelocityX * momentumFactor;
+            this.positionVelocity.y = this.positionVelocity.y * this.smoothingFactor + targetVelocityY * momentumFactor;
+            
+            // Update position with smoothed velocity
+            this.currentPosition.x += this.positionVelocity.x;
+            this.currentPosition.y += this.positionVelocity.y;
+        }
+        
+        // Ensure rocket stays within canvas bounds with smooth clamping
+        const margin = 40;
+        const minX = margin;
+        const maxX = this.canvasWidth - margin;
+        const minY = margin;
+        const maxY = this.canvasHeight - margin;
+        
+        if (this.currentPosition.x < minX) {
+            this.currentPosition.x = minX;
+            this.positionVelocity.x = Math.max(0, this.positionVelocity.x); // Stop negative velocity
+        } else if (this.currentPosition.x > maxX) {
+            this.currentPosition.x = maxX;
+            this.positionVelocity.x = Math.min(0, this.positionVelocity.x); // Stop positive velocity
+        }
+        
+        if (this.currentPosition.y < minY) {
+            this.currentPosition.y = minY;
+            this.positionVelocity.y = Math.max(0, this.positionVelocity.y); // Stop negative velocity
+        } else if (this.currentPosition.y > maxY) {
+            this.currentPosition.y = maxY;
+            this.positionVelocity.y = Math.min(0, this.positionVelocity.y); // Stop positive velocity
+        }
+        
+        // Smooth rotation animation
+        const rotationDiff = this.targetRotation - this.currentRotation;
+        if (Math.abs(rotationDiff) > 0.01) {
+            const rotationSpeed = 0.1 * (frameTime / 16.67);
+            this.rotationVelocity = this.rotationVelocity * this.smoothingFactor + rotationDiff * rotationSpeed * (1 - this.smoothingFactor);
+            this.currentRotation += this.rotationVelocity;
+        }
+        
+        // Update rocket sprite position and rotation with sub-pixel precision
+        this.rocket.x = Math.round(this.currentPosition.x * 100) / 100;
+        this.rocket.y = Math.round(this.currentPosition.y * 100) / 100;
+        this.rocket.rotation = this.currentRotation;
     }
 
     // updateTrail method removed for cleaner animation
@@ -486,6 +584,9 @@ class PixiRocketAnimationSystem {
         this.rocket.alpha = 1;
         this.rocket.scale.set(0.8);
         this.rocket.rotation = 0;
+        this.targetRotation = 0;
+        this.currentRotation = 0;
+        this.rotationVelocity = 0;
         
         // Trail particles removed for cleaner animation
         
@@ -516,8 +617,49 @@ class PixiRocketAnimationSystem {
         // Start normally first
         if (!this.start(1.0)) return false;
         
-        // Then update to target multiplier
+        // Immediately set rocket to correct position for mid-game connection
+        this.currentMultiplier = multiplier;
         this.updatePosition(multiplier);
+        
+        // Set current position to target position immediately for mid-game
+        this.currentPosition.x = this.targetPosition.x;
+        this.currentPosition.y = this.targetPosition.y;
+        
+        // Reset velocity and rotation to prevent jumping
+        this.positionVelocity.x = 0;
+        this.positionVelocity.y = 0;
+        this.rotationVelocity = 0;
+        this.currentRotation = this.targetRotation;
+        
+        // Update rocket sprite position and rotation immediately
+        if (this.rocket) {
+            this.rocket.x = this.currentPosition.x;
+            this.rocket.y = this.currentPosition.y;
+            this.rocket.rotation = this.currentRotation;
+            
+            // Ensure rocket is visible
+            this.rocket.visible = true;
+            this.rocket.alpha = 1;
+        }
+        
+        // Force rocket to be in bounds
+        const margin = 40;
+        if (this.currentPosition.x < margin || this.currentPosition.x > this.canvasWidth - margin ||
+            this.currentPosition.y < margin || this.currentPosition.y > this.canvasHeight - margin) {
+            
+            console.warn('⚠️ Rocket position out of bounds, repositioning...');
+            // Recalculate position with bounds check
+            this.updatePosition(multiplier);
+            this.currentPosition.x = Math.max(margin, Math.min(this.targetPosition.x, this.canvasWidth - margin));
+            this.currentPosition.y = Math.max(margin, Math.min(this.targetPosition.y, this.canvasHeight - margin));
+            
+            if (this.rocket) {
+                this.rocket.x = this.currentPosition.x;
+                this.rocket.y = this.currentPosition.y;
+            }
+        }
+        
+        console.log(`🎯 Rocket positioned for mid-game at ${multiplier.toFixed(2)}x: (${this.currentPosition.x.toFixed(0)}, ${this.currentPosition.y.toFixed(0)})`);
         
         return true;
     }
@@ -551,21 +693,31 @@ class PixiRocketAnimationSystem {
         targetX = Math.max(safetyMargin, Math.min(targetX, this.canvasWidth - safetyMargin));
         targetY = Math.max(safetyMargin, Math.min(targetY, this.canvasHeight - safetyMargin));
         
-        // Handle high multipliers (>10x) - keep rocket at top-right position
+        // Handle high multipliers (>10x) - use logarithmic scaling to prevent off-screen
         if (multiplier > 10.0) {
-            // Keep rocket stable at top-right corner for high multipliers
-            targetX = maxX;
-            targetY = maxY;
+            // Use logarithmic scaling for high multipliers to prevent going off-screen
+            const excessMultiplier = multiplier - 10.0;
+            const logScale = Math.log(1 + excessMultiplier * 0.1) / Math.log(2); // Logarithmic scaling
+            const highMultiplierProgress = Math.min(logScale * 0.15, 0.15); // Cap at 15% additional movement
+            
+            // Apply additional movement but keep within safe bounds
+            const safeMaxX = this.canvasWidth - 80; // Extra safety margin for high multipliers
+            const safeMaxY = 60; // Keep above top margin
+            
+            targetX = Math.min(maxX + (highMultiplierProgress * margin), safeMaxX);
+            targetY = Math.max(maxY - (highMultiplierProgress * margin), safeMaxY);
         }
         
         this.targetPosition.x = targetX;
         this.targetPosition.y = targetY;
         
-        // Update rotation based on movement
+        // Update rotation based on movement (smooth target)
         if (baseProgress > 0) {
             // Standard diagonal flight rotation
             const angle = Math.atan2(maxY - this.startPosition.y, maxX - this.startPosition.x);
-            this.rocket.rotation = angle + Math.PI / 4;
+            this.targetRotation = angle + Math.PI / 4;
+        } else {
+            this.targetRotation = 0;
         }
         
         console.log(`🚀 Position target: ${multiplier.toFixed(2)}x → (${this.targetPosition.x.toFixed(0)}, ${this.targetPosition.y.toFixed(0)})`);
@@ -658,6 +810,12 @@ class PixiRocketAnimationSystem {
             this.rocket.rotation = 0;
             this.rocket.alpha = 1;
             this.rocket.scale.set(0.8);
+            
+            // Reset smooth rotation properties
+            this.targetRotation = 0;
+            this.currentRotation = 0;
+            this.rotationVelocity = 0;
+            this.positionVelocity = { x: 0, y: 0 };
         }
         
         this.currentPosition = { ...this.startPosition };

@@ -223,7 +223,7 @@
             <div class="game-area">
                 <div style="opacity: 0;" class="game-status" id="gameStatus">Connecting...</div>
                 
-                <div class="game-canvas" id="gameCanvas">
+                <div class="game-canvas" id="gameCanvas">                    
                     <!-- History Trail inside game canvas -->
                     <div class="history-trail-ingame" id="historyTrailInGame">
                         <div class="history-items-compact" id="historyItems">
@@ -563,5 +563,14 @@
             }
         };
     </script>
+
+    <!-- Game Launch Loading Screen -->
+    <div class="game-loader-overlay" id="gameLoaderOverlay" style="display: flex;">
+        <div class="game-loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Loading Game</div>
+            <div class="loader-subtext">Connecting to server...</div>
+        </div>
+    </div>
 </body>
 </html>

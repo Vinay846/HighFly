@@ -11,6 +11,111 @@ let roundCounter = 0;
 let gameHistory = [];
 let gameStarted = false;
 
+// Bet configuration constants
+const MAX_BET_AMOUNT = 10000;
+const MIN_BET_AMOUNT = 1;
+
+// UI Control Functions
+function disableBetControls(playerIndex) {
+    // Disable bet adjustment buttons
+    const adjustBtns = document.querySelectorAll(`button[onclick*="adjustBet"][onclick*="${playerIndex}"]`);
+    adjustBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+        btn.style.background = '#222 !important';
+        btn.style.color = '#444 !important';
+        btn.style.opacity = '0.3';
+        btn.style.filter = 'grayscale(100%) brightness(0.5)';
+    });
+    
+    // Disable preset buttons
+    const presetBtns = document.querySelectorAll(`button[onclick*="setBetAmount"][onclick*="${playerIndex}"]`);
+    presetBtns.forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('disabled');
+        btn.style.background = 'rgba(0,0,0,0.8) !important';
+        btn.style.color = '#333 !important';
+        btn.style.opacity = '0.25';
+        btn.style.filter = 'grayscale(100%) brightness(0.4)';
+    });
+    
+    // Disable bet amount input
+    const betInput = document.getElementById(`betAmount${playerIndex}`);
+    if (betInput) {
+        betInput.disabled = true;
+        betInput.classList.add('disabled');
+        betInput.style.background = 'rgba(0,0,0,0.4) !important';
+        betInput.style.color = '#333 !important';
+        betInput.style.opacity = '0.3';
+        betInput.style.filter = 'grayscale(100%) brightness(0.5)';
+    }
+    
+    console.log(`🔒 Bet controls disabled for player ${playerIndex}`);
+}
+
+function enableBetControls(playerIndex) {
+    // Enable bet adjustment buttons
+    const adjustBtns = document.querySelectorAll(`button[onclick*="adjustBet"][onclick*="${playerIndex}"]`);
+    adjustBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('disabled');
+        btn.style.removeProperty('background');
+        btn.style.removeProperty('color');
+        btn.style.removeProperty('opacity');
+        btn.style.removeProperty('filter');
+    });
+    
+    // Enable preset buttons
+    const presetBtns = document.querySelectorAll(`button[onclick*="setBetAmount"][onclick*="${playerIndex}"]`);
+    presetBtns.forEach(btn => {
+        btn.disabled = false;
+        btn.classList.remove('disabled');
+        btn.style.removeProperty('background');
+        btn.style.removeProperty('color');
+        btn.style.removeProperty('opacity');
+        btn.style.removeProperty('filter');
+    });
+    
+    // Enable bet amount input
+    const betInput = document.getElementById(`betAmount${playerIndex}`);
+    if (betInput) {
+        betInput.disabled = false;
+        betInput.classList.remove('disabled');
+        betInput.style.removeProperty('background');
+        betInput.style.removeProperty('color');
+        betInput.style.removeProperty('opacity');
+        betInput.style.removeProperty('filter');
+    }
+    
+    console.log(`🔓 Bet controls enabled for player ${playerIndex}`);
+}
+
+// Update bet controls based on current game state and button state
+function updateBetControls(playerIndex) {
+    if (gameState === 'progress' && bets[playerIndex].buttonState === 'cashout') {
+        disableBetControls(playerIndex);
+    } else {
+        enableBetControls(playerIndex);
+    }
+}
+
+// Game Launch Loading Screen functions
+function showLoadingScreen() {
+    const loader = document.getElementById('gameLoaderOverlay');
+    if (loader) {
+        loader.style.display = 'flex';
+        console.log('🎮 Game loading screen shown');
+    }
+}
+
+function hideLoadingScreen() {
+    const loader = document.getElementById('gameLoaderOverlay');
+    if (loader) {
+        loader.style.display = 'none';
+        console.log('🎮 Game loading screen hidden');
+    }
+}
+
 // PixiJS integration flags
 let pixiJSReady = false;
 let animationSystemReady = false;
@@ -182,6 +287,9 @@ function initializeWebSocket() {
             console.error('❌ WebSocket Error:', error);
             updateGameStatus('crashed', 'Connection error');
             showToast('Connection error', 'error');
+            
+            // Show loading screen on connection error
+            showLoadingScreen();
         };
         
         socket.onclose = function(event) {
@@ -191,6 +299,10 @@ function initializeWebSocket() {
             if (reconnectAttempts < maxReconnectAttempts) {
                 reconnectAttempts++;
                 console.log(`🔄 Reconnecting... Attempt ${reconnectAttempts}/${maxReconnectAttempts}`);
+                
+                // Show loading screen during reconnection
+                showLoadingScreen();
+                
                 setTimeout(initializeWebSocket, 2000 * reconnectAttempts);
             } else {
                 showToast('Connection lost. Please refresh the page.', 'error');
@@ -293,6 +405,10 @@ function handleGameListResponse(data) {
         console.log('🎮 Crack game found:', crackGame);
         
         console.log('🎯 Setting game to Crack...');
+        
+        // Hide loading screen when setting game to Crack
+        hideLoadingScreen();
+        
         socket.send(JSON.stringify({
             "set": "game",
             "game": "crs1"
@@ -317,6 +433,7 @@ function handleBetResponse(data) {
         bets[playerIndex].counter = null;
         bets[playerIndex].scope = null;
         updateButtonState(playerIndex, 'bet');
+        
         
         if (data.wallet && data.wallet.balance !== undefined) {
             userBalance = data.wallet.balance;
@@ -356,6 +473,7 @@ function handleBetResponse(data) {
             bets[playerIndex].awaiting = false;
             bets[playerIndex].scope = null;
             updateButtonState(playerIndex, 'bet');
+            
         }
         
         showToast(errorMessage, 'error');
@@ -376,6 +494,7 @@ function handleBetResponse(data) {
         bets[playerIndex].awaiting = true;
         bets[playerIndex].counter = data.bet.counter;
         bets[playerIndex].scope = data.bet.scope;
+        
         
         if (data.wallet && data.wallet.balance !== undefined) {
             userBalance = data.wallet.balance;
@@ -455,6 +574,9 @@ function handlePauseState(data) {
     gameState = 'pause';
     countdown = data.countdown || 0;
     gameStarted = false;
+    
+    // Clear any saved game state when starting a new round
+    clearSavedGameState();
     
     console.log(`⏸️ Pause state: countdown = ${countdown.toFixed(1)}s`);
     
@@ -681,9 +803,19 @@ function handleMidGameConnection(data) {
     elements.multiplierDisplay.classList.remove('crashed');
     elements.multiplierDisplay.style.color = '';
     
-    // Start rocket animation from current multiplier position
+    // Force rocket to be visible and start from current multiplier position
     const rocketAnimation = getRocketAnimation();
+    
+    // Ensure rocket is visible first
+    if (rocketAnimation.forceRocketVisible) {
+        rocketAnimation.forceRocketVisible();
+    }
+    
+    // Start rocket animation from current multiplier position
     rocketAnimation.startFromMultiplier(currentMultiplier);
+    
+    // Ensure multiplier display is updated
+    updateMultiplierDisplay(currentMultiplier);
     
     if (window.soundManager) {
         window.soundManager.onGameStart();
@@ -717,6 +849,7 @@ function handleProgressState(data) {
     
     // Ensure countdown loader is hidden during progress
     hideCountdownLoader();
+    
     currentMultiplier = data.k || 1.00;
     currentH = data.h || 0;
     
@@ -765,6 +898,9 @@ function handleCrashState(data) {
     
     console.log(`💥 Crash detected at ${crashMultiplier.toFixed(2)}x - Starting falling animation`);
     
+    // Clear saved game state since round is ending
+    clearSavedGameState();
+    
     // Update current multiplier to crash value
     currentMultiplier = crashMultiplier;
     
@@ -800,6 +936,7 @@ function handleCrashState(data) {
             bets[i].counter = null;
             bets[i].scope = null;
             bets[i].autoCashoutTriggered = false;
+            
         }
     }
     
@@ -891,10 +1028,22 @@ function toggleAutoCashout(playerIndex) {
 }
 
 function adjustBet(multiplier, playerIndex) {
+    // Prevent adjustment if bet is already placed
+    if (bets[playerIndex].placed) {
+        showToast('Cannot change bet amount after placing bet', 'error');
+        return;
+    }
+    
     const input = document.getElementById(`betAmount${playerIndex}`);
     const current = parseFloat(input.value) || 100;
     const newAmount = multiplier < 1 ? current * multiplier : current * multiplier;
-    const finalAmount = Math.max(1, Math.round(newAmount * 100) / 100);
+    let finalAmount = Math.max(MIN_BET_AMOUNT, Math.round(newAmount * 100) / 100);
+    
+    // Apply upper limit
+    if (finalAmount > MAX_BET_AMOUNT) {
+        finalAmount = MAX_BET_AMOUNT;
+        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+    }
     
     input.value = finalAmount.toFixed(2);
     bets[playerIndex].amount = finalAmount;
@@ -902,9 +1051,22 @@ function adjustBet(multiplier, playerIndex) {
 }
 
 function setBetAmount(amount, playerIndex) {
-    document.getElementById(`betAmount${playerIndex}`).value = amount.toFixed(2);
-    bets[playerIndex].amount = amount;
-    updateButtonAmount(playerIndex, amount.toFixed(2));
+    // Prevent changes if bet is already placed
+    if (bets[playerIndex].placed) {
+        showToast('Cannot change bet amount after placing bet', 'error');
+        return;
+    }
+    
+    // Apply limits
+    let finalAmount = Math.max(MIN_BET_AMOUNT, Math.min(amount, MAX_BET_AMOUNT));
+    
+    if (amount > MAX_BET_AMOUNT) {
+        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+    }
+    
+    document.getElementById(`betAmount${playerIndex}`).value = finalAmount.toFixed(2);
+    bets[playerIndex].amount = finalAmount;
+    updateButtonAmount(playerIndex, finalAmount.toFixed(2));
 }
 
 function handleMainAction(playerIndex) {
@@ -1023,6 +1185,7 @@ function cashOut(playerIndex) {
         bets[playerIndex].autoCashoutTriggered = false;
         updateButtonState(playerIndex, 'bet');
         
+        
         const cashoutType = bets[playerIndex].autoCashoutTriggered ? 'Auto-cashed' : 'Cashed';
         showToast(`${cashoutType} out ₹${winAmount.toFixed(2)} at ${currentMultiplier.toFixed(2)}x`, 'success');
     } else {
@@ -1070,6 +1233,9 @@ function updateButtonState(playerIndex, state) {
             updateButtonAmount(playerIndex, bets[playerIndex].amount.toFixed(2));
             break;
     }
+    
+    // Update bet controls based on new button state
+    updateBetControls(playerIndex);
 }
 
 function updateButtonAmount(playerIndex, amount) {
@@ -1186,15 +1352,51 @@ function toggleSidebar() {
     sidebar.classList.toggle('visible');
 }
 
-// Event listeners
+// Event listeners with bet validation
 document.getElementById('betAmount1').addEventListener('input', function() {
-    const value = parseFloat(this.value) || 100;
+    // Prevent changes if bet is already placed
+    if (bets[1].placed) {
+        this.value = bets[1].amount.toFixed(2);
+        showToast('Cannot change bet amount after placing bet', 'error');
+        return;
+    }
+    
+    let value = parseFloat(this.value) || MIN_BET_AMOUNT;
+    
+    // Apply bet limits
+    if (value > MAX_BET_AMOUNT) {
+        value = MAX_BET_AMOUNT;
+        this.value = value.toFixed(2);
+        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+    } else if (value < MIN_BET_AMOUNT) {
+        value = MIN_BET_AMOUNT;
+        this.value = value.toFixed(2);
+    }
+    
     bets[1].amount = value;
     updateButtonAmount(1, value.toFixed(2));
 });
 
 document.getElementById('betAmount2').addEventListener('input', function() {
-    const value = parseFloat(this.value) || 100;
+    // Prevent changes if bet is already placed
+    if (bets[2].placed) {
+        this.value = bets[2].amount.toFixed(2);
+        showToast('Cannot change bet amount after placing bet', 'error');
+        return;
+    }
+    
+    let value = parseFloat(this.value) || MIN_BET_AMOUNT;
+    
+    // Apply bet limits
+    if (value > MAX_BET_AMOUNT) {
+        value = MAX_BET_AMOUNT;
+        this.value = value.toFixed(2);
+        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+    } else if (value < MIN_BET_AMOUNT) {
+        value = MIN_BET_AMOUNT;
+        this.value = value.toFixed(2);
+    }
+    
     bets[2].amount = value;
     updateButtonAmount(2, value.toFixed(2));
 });
@@ -1353,8 +1555,81 @@ window.addEventListener('focus', function() {
     }
 });
 
-// Enhanced window beforeunload
+// Unfinished game handling
+function saveGameState() {
+    const gameData = {
+        timestamp: Date.now(),
+        gameState: gameState,
+        currentMultiplier: currentMultiplier,
+        bets: bets,
+        roundCounter: roundCounter,
+        gameStarted: gameStarted
+    };
+    localStorage.setItem('aviatorGameState', JSON.stringify(gameData));
+}
+
+function loadGameState() {
+    try {
+        const savedData = localStorage.getItem('aviatorGameState');
+        if (!savedData) return false;
+        
+        const gameData = JSON.parse(savedData);
+        const timeDiff = Date.now() - gameData.timestamp;
+        
+        // Only restore if saved less than 10 minutes ago and game was in progress
+        if (timeDiff < 600000 && (gameData.gameState === 'progress' || gameData.gameState === 'pause')) {
+            // Restore critical game state
+            if (gameData.gameState === 'progress') {
+                showToast('Previous game session detected - Will sync when server updates received', 'info');
+                
+                // Don't immediately set to pause - let the server determine current state
+                // Just restore the saved multiplier as a reference
+                const savedMultiplier = gameData.currentMultiplier || 1.0;
+                console.log(`📦 Restored game state - was at ${savedMultiplier.toFixed(2)}x`);
+                
+                // Restore placed bets but keep them in a pending state until server confirms
+                Object.keys(gameData.bets).forEach(playerIndex => {
+                    if (gameData.bets[playerIndex].placed && !gameData.bets[playerIndex].cashedOut) {
+                        bets[playerIndex] = { ...gameData.bets[playerIndex] };
+                        // Keep bet state as-is - server will update the button state
+                        console.log(`📦 Restored bet for player ${playerIndex}: ₹${bets[playerIndex].amount}`);
+                    }
+                });
+            } else if (gameData.gameState === 'pause') {
+                // Restore bet amounts but not placed status
+                Object.keys(gameData.bets).forEach(playerIndex => {
+                    if (gameData.bets[playerIndex].amount) {
+                        bets[playerIndex].amount = gameData.bets[playerIndex].amount;
+                        document.getElementById(`betAmount${playerIndex}`).value = bets[playerIndex].amount.toFixed(2);
+                        updateButtonAmount(playerIndex, bets[playerIndex].amount.toFixed(2));
+                    }
+                });
+                showToast('Bet amounts restored from previous session', 'info');
+            }
+            
+            return true;
+        }
+    } catch (error) {
+        console.error('Failed to load game state:', error);
+    }
+    
+    // Clear old/invalid saved state
+    localStorage.removeItem('aviatorGameState');
+    return false;
+}
+
+function clearSavedGameState() {
+    localStorage.removeItem('aviatorGameState');
+}
+
+// Enhanced window beforeunload with game state saving
 window.addEventListener('beforeunload', function() {
+    // Save game state if there are active bets or game in progress
+    if ((gameState === 'progress' || gameState === 'pause') && 
+        (bets[1].placed || bets[2].placed || bets[1].amount > 0 || bets[2].amount > 0)) {
+        saveGameState();
+    }
+    
     cleanup();
     if (socket && socket.readyState === WebSocket.OPEN) {
         socket.close();
@@ -1499,6 +1774,16 @@ async function enhancedInitialization() {
     
     // Wait for PixiJS to be ready
     await waitForPixiJS();
+    
+    // Load saved game state before initializing
+    const stateRestored = loadGameState();
+    if (stateRestored) {
+        console.log('🔄 Game state restored from previous session');
+    }
+    
+    // Initialize bet controls state
+    updateBetControls(1);
+    updateBetControls(2);
     
     // Initialize the game
     initializeGame();
