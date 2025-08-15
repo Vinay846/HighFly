@@ -3,6 +3,7 @@ let gameState = 'connecting';
 let currentMultiplier = 1.00;
 let currentH = 0;
 let userBalance = 5000;
+let userCurrency = 'USD'; // Default currency, will be updated from server
 let countdown = 0;
 let socket = null;
 let reconnectAttempts = 0;
@@ -317,6 +318,13 @@ function initializeWebSocket() {
 
 // Handle server messages
 function handleServerMessage(data) {
+    // Always check for wallet balance updates first in any response
+    if (data.wallet && data.wallet.balance !== undefined) {
+        userBalance = data.wallet.balance;
+        updateBalanceDisplay();
+        console.log('💰 Balance updated from wallet:', userBalance);
+    }
+    
     if (data.authentication !== undefined) {
         handleAuthenticationResponse(data);
         return;
@@ -332,10 +340,12 @@ function handleServerMessage(data) {
         return;
     }
     
-    if (data.wallet && data.wallet.balance !== undefined) {
-        userBalance = data.wallet.balance;
-        updateBalance();
-        console.log('💰 Balance updated:', userBalance);
+    // Handle responses with "on" property (set options responses)
+    if (data.on && data.on.set === 'options') {
+        console.log('⚙️ Options set response:', data);
+        // Balance already handled above via wallet object
+        showToast('Bet options updated', 'info');
+        return;
     }
     
     if (data.status) {
@@ -371,10 +381,19 @@ function handleAuthenticationResponse(data) {
     if (data.authentication === true) {
         console.log('✅ Authentication successful');
         
-        if (data.wallet && data.wallet.balance !== undefined) {
-            userBalance = data.wallet.balance;
-            updateBalance();
-            console.log('💰 Initial balance:', userBalance);
+        if (data.wallet) {
+            if (data.wallet.balance !== undefined) {
+                userBalance = data.wallet.balance;
+                console.log('💰 Initial balance:', userBalance);
+            }
+            
+            if (data.wallet.currency !== undefined) {
+                userCurrency = data.wallet.currency;
+                console.log('💱 Currency set to:', userCurrency);
+            }
+            
+            // Update both balance and currency display
+            updateBalanceDisplay();
         }
         
         if (data.set_cookie && Array.isArray(data.set_cookie)) {
@@ -390,6 +409,11 @@ function handleAuthenticationResponse(data) {
         }));
         
         showToast('Authentication successful!', 'success');
+        
+        // Add sample bet history now that we have proper currency
+        setTimeout(() => {
+            addSampleBetHistory();
+        }, 500); // Small delay to ensure UI is ready
     } else {
         console.error('❌ Authentication failed');
         showToast('Authentication failed', 'error');
@@ -437,7 +461,7 @@ function handleBetResponse(data) {
         
         if (data.wallet && data.wallet.balance !== undefined) {
             userBalance = data.wallet.balance;
-            updateBalance();
+            updateBalanceDisplay();
         }
         
         showToast(`Bet cancelled successfully!`, 'success');
@@ -480,7 +504,7 @@ function handleBetResponse(data) {
         
         if (data.wallet && data.wallet.balance !== undefined) {
             userBalance = data.wallet.balance;
-            updateBalance();
+            updateBalanceDisplay();
         }
         
         return;
@@ -498,7 +522,7 @@ function handleBetResponse(data) {
         
         if (data.wallet && data.wallet.balance !== undefined) {
             userBalance = data.wallet.balance;
-            updateBalance();
+            updateBalanceDisplay();
         }
         
         if (data.bet.scope === 'current') {
@@ -850,21 +874,36 @@ function handleProgressState(data) {
     // Ensure countdown loader is hidden during progress
     hideCountdownLoader();
     
-    currentMultiplier = data.k || 1.00;
     currentH = data.h || 0;
     
-    // Update multiplier display with smooth animation
-    elements.multiplierDisplay.textContent = currentMultiplier.toFixed(2) + 'x';
+    // Update multiplier display and cashout amounts together
+    updateMultiplierDisplay(data.k || 1.00);
     
     // Update rocket animation position using the animation interface
     const rocketAnimation = getRocketAnimation();
     rocketAnimation.updatePosition(currentMultiplier);
     
-    // Update cashout button amounts and check auto-cashout
+    // DIRECTLY update button amounts for placed bets - no complex conditions
     for (let i = 1; i <= 2; i++) {
-        if (bets[i].placed && bets[i].scope === 'current' && bets[i].buttonState === 'cashout') {
+        if (bets[i].placed && bets[i].scope === 'current') {
+            // Ensure button is in cashout state
+            if (bets[i].buttonState !== 'cashout') {
+                bets[i].buttonState = 'cashout';
+                const button = document.getElementById(`mainActionButton${i}`);
+                if (button) {
+                    const label = button.querySelector('.button-label');
+                    button.className = 'main-action-button cashout-state';
+                    if (label) label.textContent = 'CASH OUT';
+                    button.disabled = false;
+                }
+            }
+            
+            // Force update the cashout amount for this specific button
             const cashoutValue = (bets[i].amount * currentMultiplier).toFixed(2);
-            updateButtonAmount(i, cashoutValue);
+            const amountElement = document.getElementById(`mainButtonAmount${i}`);
+            if (amountElement) {
+                amountElement.textContent = cashoutValue;
+            }
             
             // Check auto-cashout - only if enabled via checkbox
             if (bets[i].mode === 'auto' && 
@@ -887,6 +926,9 @@ function handleProgressState(data) {
     }
     
     updateGameStatus('started', `Flying - ${currentMultiplier.toFixed(2)}x`);
+    
+    // Final safety net - ensure cashout amounts are updated
+    updateAllCashoutAmounts();
     
     // Log progress for debugging
     console.log(`📈 Progress: ${currentMultiplier.toFixed(2)}x (H: ${currentH})`);
@@ -929,7 +971,7 @@ function handleCrashState(data) {
     for (let i = 1; i <= 2; i++) {
         if (bets[i].placed && bets[i].scope === 'current' && bets[i].awaiting) {
             addToBetList(bets[i].amount, crashMultiplier, -bets[i].amount, true);
-            showToast(`Bet ${i} crashed at ${crashMultiplier.toFixed(2)}x - Lost ₹${bets[i].amount}`, 'error');
+            showToast(`Bet ${i} crashed at ${crashMultiplier.toFixed(2)}x - Lost ${getCurrencySymbol(userCurrency)}${bets[i].amount}`, 'error');
             
             bets[i].placed = false;
             bets[i].awaiting = false;
@@ -1042,7 +1084,7 @@ function adjustBet(multiplier, playerIndex) {
     // Apply upper limit
     if (finalAmount > MAX_BET_AMOUNT) {
         finalAmount = MAX_BET_AMOUNT;
-        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+        showToast(`Maximum bet amount is ${getCurrencySymbol(userCurrency)}${MAX_BET_AMOUNT}`, 'warning');
     }
     
     input.value = finalAmount.toFixed(2);
@@ -1061,7 +1103,7 @@ function setBetAmount(amount, playerIndex) {
     let finalAmount = Math.max(MIN_BET_AMOUNT, Math.min(amount, MAX_BET_AMOUNT));
     
     if (amount > MAX_BET_AMOUNT) {
-        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+        showToast(`Maximum bet amount is ${getCurrencySymbol(userCurrency)}${MAX_BET_AMOUNT}`, 'warning');
     }
     
     document.getElementById(`betAmount${playerIndex}`).value = finalAmount.toFixed(2);
@@ -1173,8 +1215,8 @@ function cashOut(playerIndex) {
         }
         
         const winAmount = bets[playerIndex].amount * currentMultiplier;
-        userBalance += winAmount;
-        updateBalance();
+        // Note: Balance will be updated from server response via wallet object
+        // Don't manually update balance here, wait for server confirmation
         
         addToBetList(bets[playerIndex].amount, currentMultiplier, winAmount, false);
         
@@ -1186,8 +1228,11 @@ function cashOut(playerIndex) {
         updateButtonState(playerIndex, 'bet');
         
         
-        const cashoutType = bets[playerIndex].autoCashoutTriggered ? 'Auto-cashed' : 'Cashed';
-        showToast(`${cashoutType} out ₹${winAmount.toFixed(2)} at ${currentMultiplier.toFixed(2)}x`, 'success');
+        const cashoutType = bets[playerIndex].autoCashoutTriggered ? 'AUTO-CASHED OUT!' : 'YOU HAVE CASHED OUT!';
+        const multiplierText = `${currentMultiplier.toFixed(2)}x`;
+        const currencySymbol = getCurrencySymbol(userCurrency);
+        const winText = `WIN ${currencySymbol}${winAmount.toFixed(2)}`;
+        showToast(`${cashoutType} ${multiplierText}                    ${winText}`, 'success');
     } else {
         showToast('Connection error. Please try again.', 'error');
     }
@@ -1217,8 +1262,11 @@ function updateButtonState(playerIndex, state) {
             button.className = 'main-action-button cashout-state';
             label.textContent = 'CASH OUT';
             button.disabled = false;
-            const cashoutValue = (bets[playerIndex].amount * currentMultiplier).toFixed(2);
-            updateButtonAmount(playerIndex, cashoutValue);
+            // Don't update amount here during progress - let handleProgressState control it
+            if (gameState !== 'progress') {
+                const cashoutValue = (bets[playerIndex].amount * currentMultiplier).toFixed(2);
+                updateButtonAmount(playerIndex, cashoutValue);
+            }
             break;
         case 'waiting':
             button.className = 'main-action-button bet-state';
@@ -1239,10 +1287,60 @@ function updateButtonState(playerIndex, state) {
 }
 
 function updateButtonAmount(playerIndex, amount) {
-    const amountElement = document.getElementById(`mainButtonAmount${playerIndex}`);
-    if (amountElement) {
-        amountElement.textContent = amount;
+    // Try multiple ways to find the amount element
+    let amountElement = document.getElementById(`mainButtonAmount${playerIndex}`);
+    
+    if (!amountElement) {
+        // Alternative: find via button element
+        const button = document.getElementById(`mainActionButton${playerIndex}`);
+        if (button) {
+            amountElement = button.querySelector('.button-amount span');
+        }
     }
+    
+    if (amountElement) {
+        amountElement.textContent = `${amount}`;
+    }
+}
+
+// New function to update all cashout button amounts with current multiplier
+function updateAllCashoutAmounts() {
+    for (let i = 1; i <= 2; i++) {
+        // Check if button is actually showing "CASH OUT" text in the DOM
+        const button = document.getElementById(`mainActionButton${i}`);
+        const label = button?.querySelector('.button-label');
+        
+        if (button && label && label.textContent === 'CASH OUT' && gameState === 'progress') {
+            const cashoutValue = (bets[i].amount * currentMultiplier).toFixed(2);
+            
+            // Try multiple ways to find the amount element
+            let amountElement = document.getElementById(`mainButtonAmount${i}`);
+            if (!amountElement) {
+                // Alternative: find by class within the button
+                amountElement = button.querySelector('.button-amount span');
+            }
+            if (!amountElement) {
+                // Alternative: find any span within button-amount
+                const buttonAmountEl = button.querySelector('.button-amount');
+                if (buttonAmountEl) {
+                    amountElement = buttonAmountEl.querySelector('span');
+                }
+            }
+            
+            if (amountElement) {
+                amountElement.textContent = cashoutValue;
+            } else {
+                console.error(`Could not find amount element for button ${i}`);
+            }
+        }
+    }
+}
+
+// Helper function to update multiplier display and cashout amounts together
+function updateMultiplierDisplay(multiplier) {
+    currentMultiplier = multiplier;
+    elements.multiplierDisplay.textContent = multiplier.toFixed(2) + 'x';
+    updateAllCashoutAmounts();
 }
 
 function updateGameStatus(state, message) {
@@ -1252,7 +1350,93 @@ function updateGameStatus(state, message) {
 }
 
 function updateBalance() {
-    elements.balance.textContent = userBalance.toFixed(2);
+    if (elements.balance) {
+        elements.balance.textContent = userBalance.toFixed(2);
+    }
+}
+
+// New comprehensive balance update function
+function updateBalanceDisplay() {
+    // Update the balance number
+    if (elements.balance) {
+        elements.balance.textContent = userBalance.toFixed(2);
+    }
+    
+    // Update balance with currency symbol if currency is known
+    if (userCurrency && userCurrency !== 'USD') {
+        updateCurrency();
+    }
+    
+    console.log(`💰 Balance display updated: ${getCurrencySymbol(userCurrency)}${userBalance.toFixed(2)}`);
+}
+
+function updateCurrency() {
+    // Get currency symbol based on currency code
+    const currencySymbol = getCurrencySymbol(userCurrency);
+    
+    // Update balance display with currency
+    const balanceDiv = document.querySelector('.balance');
+    if (balanceDiv) {
+        balanceDiv.innerHTML = `${currencySymbol}<span id="balance">${userBalance.toFixed(2)}</span>`;
+        // Update elements reference to the new balance element
+        elements.balance = document.getElementById('balance');
+    }
+    
+    // Update existing bet list items with new currency
+    updateBetListCurrency();
+    
+    // Note: Button amounts should not show currency - they're handled by updateButtonAmount function
+    // Sidebar bet list items show currency via addToBetList function using getCurrencySymbol
+    
+    console.log('💱 Currency updated to:', userCurrency);
+}
+
+// Function to update existing bet list items with correct currency
+function updateBetListCurrency() {
+    const betList = elements.betList;
+    if (!betList) return;
+    
+    const currencySymbol = getCurrencySymbol(userCurrency);
+    const betItems = betList.querySelectorAll('.bet-item');
+    
+    betItems.forEach(item => {
+        const betAmountEl = item.querySelector('.bet-amount');
+        const betWinEl = item.querySelector('.bet-win');
+        
+        if (betAmountEl) {
+            // Extract the numeric amount and update with new currency
+            const amountText = betAmountEl.textContent.replace(/[^\d.]/g, '');
+            if (amountText) {
+                betAmountEl.textContent = `${currencySymbol}${amountText}`;
+            }
+        }
+        
+        if (betWinEl) {
+            // Extract the numeric amount and update with new currency, preserve +/- sign
+            const winText = betWinEl.textContent;
+            const isNegative = winText.startsWith('-');
+            const winAmount = winText.replace(/[^\d.]/g, '');
+            if (winAmount) {
+                betWinEl.textContent = `${isNegative ? '-' : '+'}${currencySymbol}${winAmount}`;
+            }
+        }
+    });
+    
+    console.log('💱 Updated bet list currency symbols to:', currencySymbol);
+}
+
+function getCurrencySymbol(currencyCode) {
+    const currencySymbols = {
+        'INR': '',
+        'USD': '$',
+        'EUR': '€',
+        'GBP': '£',
+        'JPY': '¥',
+        'FUN': 'P', // Gaming/Fun currency
+        'BTC': '₿',
+        'ETH': 'Ξ'
+    };
+    return currencySymbols[currencyCode] || currencyCode;
 }
 
 function showToast(message, type = 'info') {
@@ -1326,10 +1510,11 @@ function addToBetList(amount, multiplier, winAmount, crashed) {
     item.className = crashed ? 'bet-item loss' : 'bet-item bg';
     
     const multiplierText = `${multiplier.toFixed(2)}x`;
-    const winAmountText = crashed ? `-₹${amount.toFixed(2)}` : `+₹${winAmount.toFixed(2)}`;
+    const currencySymbol = getCurrencySymbol(userCurrency);
+    const winAmountText = crashed ? `-${currencySymbol}${amount.toFixed(2)}` : `+${currencySymbol}${winAmount.toFixed(2)}`;
     
     item.innerHTML = `
-        <div class="bet-amount">₹${amount.toFixed(2)}</div>
+        <div class="bet-amount">${currencySymbol}${amount.toFixed(2)}</div>
         <div class="bet-multiplier ${crashed ? 'crashed' : ''}">${multiplierText}</div>
         <div class="bet-win ${crashed ? 'loss' : 'profit'}">${winAmountText}</div>
     `;
@@ -1339,6 +1524,25 @@ function addToBetList(amount, multiplier, winAmount, crashed) {
     while (betList.children.length > 20) {
         betList.removeChild(betList.lastChild);
     }
+}
+
+// Function to add sample bet history with correct currency
+function addSampleBetHistory() {
+    console.log('📊 Adding sample bet history with currency:', userCurrency);
+    
+    // Clear existing bet list first
+    const betList = elements.betList;
+    if (betList) {
+        betList.innerHTML = '';
+    }
+    
+    // Add sample bet history with current currency
+    addToBetList(8000, 2.64, 21120, false);
+    addToBetList(8000, 1.23, -8000, true);
+    addToBetList(8000, 3.67, 29360, false);
+    addToBetList(8000, 1.05, -8000, true);
+    addToBetList(8000, 2.45, 19600, false);
+    addToBetList(8000, 1.89, 15120, false);
 }
 
 function getMultiplierClass(multiplier) {
@@ -1367,7 +1571,7 @@ document.getElementById('betAmount1').addEventListener('input', function() {
     if (value > MAX_BET_AMOUNT) {
         value = MAX_BET_AMOUNT;
         this.value = value.toFixed(2);
-        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+        showToast(`Maximum bet amount is ${getCurrencySymbol(userCurrency)}${MAX_BET_AMOUNT}`, 'warning');
     } else if (value < MIN_BET_AMOUNT) {
         value = MIN_BET_AMOUNT;
         this.value = value.toFixed(2);
@@ -1391,7 +1595,7 @@ document.getElementById('betAmount2').addEventListener('input', function() {
     if (value > MAX_BET_AMOUNT) {
         value = MAX_BET_AMOUNT;
         this.value = value.toFixed(2);
-        showToast(`Maximum bet amount is ₹${MAX_BET_AMOUNT}`, 'warning');
+        showToast(`Maximum bet amount is ${getCurrencySymbol(userCurrency)}${MAX_BET_AMOUNT}`, 'warning');
     } else if (value < MIN_BET_AMOUNT) {
         value = MIN_BET_AMOUNT;
         this.value = value.toFixed(2);
@@ -1416,7 +1620,7 @@ function initializeGame() {
     // Check PixiJS status first
     checkPixiJSStatus();
     
-    updateBalance();
+    updateBalanceDisplay();
     
     if (elements.countdownContainer) {
         elements.countdownContainer.classList.add('hidden');
@@ -1444,13 +1648,7 @@ function initializeGame() {
         addToHistory(multiplier);
     });
     
-    // Add sample bet history
-    addToBetList(8000, 2.64, 12000, false);
-    addToBetList(8000, 1.23, -8000, true);
-    addToBetList(8000, 3.67, 12000, false);
-    addToBetList(8000, 1.05, -8000, true);
-    addToBetList(8000, 2.45, 12000, false);
-    addToBetList(8000, 1.89, 12000, false);
+    // Sample bet history will be added after authentication when currency is known
     
     console.log('✅ Game initialization complete');
 }
@@ -1592,7 +1790,7 @@ function loadGameState() {
                     if (gameData.bets[playerIndex].placed && !gameData.bets[playerIndex].cashedOut) {
                         bets[playerIndex] = { ...gameData.bets[playerIndex] };
                         // Keep bet state as-is - server will update the button state
-                        console.log(`📦 Restored bet for player ${playerIndex}: ₹${bets[playerIndex].amount}`);
+                        console.log(`📦 Restored bet for player ${playerIndex}: ${getCurrencySymbol(userCurrency)}${bets[playerIndex].amount}`);
                     }
                 });
             } else if (gameData.gameState === 'pause') {
@@ -1784,6 +1982,9 @@ async function enhancedInitialization() {
     // Initialize bet controls state
     updateBetControls(1);
     updateBetControls(2);
+    
+    // Initialize currency display (will be updated when server responds)
+    updateBalanceDisplay();
     
     // Initialize the game
     initializeGame();

@@ -25,6 +25,7 @@ class PixiRocketAnimationSystem {
         this.tabVisible = true;
         this.isRocketVisible = false;
         this.isCrashing = false;
+        this.touchActive = false;
         
         // Position tracking
         this.currentPosition = { x: 0, y: 0 };
@@ -37,7 +38,7 @@ class PixiRocketAnimationSystem {
         
         // Animation properties
         this.currentMultiplier = 1.0;
-        this.animationSpeed = 0.08; // Optimized for ultra-smooth movement
+        this.animationSpeed = 0.12; // Constant speed for smooth, visible movement from 1x
         this.crashAnimation = null;
         
         // Advanced smoothing properties
@@ -167,7 +168,7 @@ class PixiRocketAnimationSystem {
         // Create rocket sprite
         this.rocket = new PIXI.Sprite(this.rocketTexture);
         this.rocket.anchor.set(0.5, 0.5);
-        this.rocket.scale.set(0.8);
+        this.updateRocketScale(); // Set initial scale based on device
         this.rocket.visible = false;
         
         // Add to main container (rocket should be on top)
@@ -232,9 +233,13 @@ class PixiRocketAnimationSystem {
     }
 
     setupEventHandlers() {
-        // Window resize
+        // Window resize with debouncing
+        let resizeTimeout;
         window.addEventListener('resize', () => {
-            this.handleResize();
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                this.handleResize();
+            }, 100); // Debounce resize events
         });
 
         // Tab visibility
@@ -249,14 +254,46 @@ class PixiRocketAnimationSystem {
         window.addEventListener('focus', () => {
             this.tabVisible = true;
         });
+
+        // Touch events for mobile devices
+        if ('ontouchstart' in window) {
+            let touchTimeout;
+            
+            document.addEventListener('touchstart', () => {
+                clearTimeout(touchTimeout);
+                // Brief pause in animation during touch to prevent jitter
+                this.touchActive = true;
+            }, { passive: true });
+            
+            document.addEventListener('touchend', () => {
+                touchTimeout = setTimeout(() => {
+                    this.touchActive = false;
+                    // Resume normal animation
+                    if (this.isActive) {
+                        this.updatePosition(this.currentMultiplier);
+                    }
+                }, 50);
+            }, { passive: true });
+        }
         
         console.log('✅ Event handlers setup complete');
     }
 
     handleResize() {
+        console.log('🔄 Handling resize event...');
+        
+        // Store current rocket state
+        const wasActive = this.isActive;
+        const currentMult = this.currentMultiplier;
+        const wasVisible = this.isRocketVisible;
+        
+        // Update dimensions and renderer
         this.updateCanvasDimensions();
         this.app.renderer.resize(this.canvasWidth, this.canvasHeight);
         this.calculateStartPosition();
+        
+        // Update rocket scale for new dimensions
+        this.updateRocketScale();
         
         // Recreate star field for new dimensions (with error handling)
         if (this.starsContainer) {
@@ -267,8 +304,30 @@ class PixiRocketAnimationSystem {
             }
         }
         
-        if (this.isActive) {
-            this.updatePosition(this.currentMultiplier);
+        // Restore rocket state and position
+        if (this.rocket) {
+            if (wasActive && wasVisible) {
+                // Recalculate and update rocket position
+                this.updatePosition(currentMult);
+                
+                // Ensure rocket position is updated immediately
+                this.currentPosition.x = this.targetPosition.x;
+                this.currentPosition.y = this.targetPosition.y;
+                this.rocket.x = this.currentPosition.x;
+                this.rocket.y = this.currentPosition.y;
+                
+                // Reset velocity to prevent jumping
+                this.positionVelocity.x = 0;
+                this.positionVelocity.y = 0;
+                
+                console.log(`🚀 Rocket repositioned after resize: (${this.rocket.x.toFixed(0)}, ${this.rocket.y.toFixed(0)})`);
+            } else if (!wasActive) {
+                // Reset to start position
+                this.rocket.x = this.startPosition.x;
+                this.rocket.y = this.startPosition.y;
+                this.currentPosition = { ...this.startPosition };
+                this.targetPosition = { ...this.startPosition };
+            }
         }
     }
 
@@ -305,13 +364,48 @@ class PixiRocketAnimationSystem {
         };
     }
 
+    updateRocketScale() {
+        if (!this.rocket) return;
+        
+        // Check device orientation and screen dimensions
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const isMobile = window.innerWidth <= 768 || 
+                         ('ontouchstart' in window) || 
+                         (navigator.maxTouchPoints > 0);
+        
+        // Calculate base scale factors
+        // Desktop (1280x720 reference): 146x146px target
+        // Mobile mode: 86x86px target
+        const baseTextureSize = 80; // Approximate base texture size
+        let targetSize;
+        
+        if (isMobile) {
+            // Mobile mode: always 86x86
+            targetSize = 86;
+        } else {
+            // Desktop: 146x146 with scaling based on 1280x720 reference
+            const referenceWidth = 1280;
+            const referenceHeight = 720;
+            const scaleFactorWidth = this.canvasWidth / referenceWidth;
+            const scaleFactorHeight = this.canvasHeight / referenceHeight;
+            const averageScale = (scaleFactorWidth + scaleFactorHeight) / 2;
+            
+            targetSize = 146 * Math.min(Math.max(averageScale, 0.7), 1.5); // Clamp scaling
+        }
+        
+        const baseScale = targetSize / baseTextureSize;
+        
+        console.log(`🚀 Rocket scale updated: ${baseScale.toFixed(2)} (${isMobile ? 'Mobile' : 'Desktop'} mode, target: ${targetSize.toFixed(0)}px)`);
+        this.rocket.scale.set(baseScale);
+    }
+
     // Main animation update function
     updateAnimation(delta) {
         // Always update stars for ambient background
         this.updateStars(delta);
         
-        // Only update rocket if it's active and visible
-        if (this.isActive && this.rocket && this.isRocketVisible) {
+        // Only update rocket if it's active and visible, and not during active touch
+        if (this.isActive && this.rocket && this.isRocketVisible && !this.touchActive) {
             // Update rocket position smoothly
             this.smoothUpdatePosition(delta);
             
@@ -347,17 +441,16 @@ class PixiRocketAnimationSystem {
             this.currentPosition.x += distanceX * smoothFactor;
             this.currentPosition.y += distanceY * smoothFactor;
         } else {
-            // Use advanced easing for smooth movement
+            // Use constant speed for smooth movement
             const baseSpeed = this.animationSpeed * (frameTime / 16.67);
             
-            // Adaptive speed based on distance (faster for larger distances)
-            const speedMultiplier = Math.min(1 + totalDistance / 200, 2.5);
-            const adjustedSpeed = baseSpeed * speedMultiplier;
+            // Keep constant speed - no multipliers based on distance or multiplier
+            const constantSpeed = baseSpeed;
             
-            // Apply cubic easing for ultra-smooth movement
-            const easedSpeed = this.easeInOutCubic(Math.min(adjustedSpeed, 1));
+            // Apply light easing for ultra-smooth movement but maintain constant speed
+            const easedSpeed = this.easeInOutCubic(Math.min(constantSpeed, 1));
             
-            // Calculate smooth velocity with momentum
+            // Calculate smooth velocity with momentum - maintain direction but constant speed
             const targetVelocityX = distanceX * easedSpeed;
             const targetVelocityY = distanceY * easedSpeed;
             
@@ -582,7 +675,7 @@ class PixiRocketAnimationSystem {
         this.rocket.x = this.startPosition.x;
         this.rocket.y = this.startPosition.y;
         this.rocket.alpha = 1;
-        this.rocket.scale.set(0.8);
+        this.updateRocketScale(); // Use responsive scaling
         this.rocket.rotation = 0;
         this.targetRotation = 0;
         this.currentRotation = 0;
@@ -675,8 +768,9 @@ class PixiRocketAnimationSystem {
         
         this.currentMultiplier = multiplier;
         
-        // Calculate progress (1.0x = 0%, 10.0x = 100% at canvas edge)
-        const baseProgress = Math.min(Math.max((multiplier - 1.0) / 9.0, 0), 1);
+        // Calculate progress with immediate movement from 1.0x
+        // 1.0x = 8%, 1.5x = 12.5%, 2.0x = 20%, 10.0x = 100%
+        const baseProgress = Math.min(Math.max((multiplier - 1.0) / 8.5 + 0.08, 0.08), 1);
         
         // Calculate target position - adaptive margins for different screen sizes
         const marginRatio = Math.min(0.08, Math.max(0.03, 60 / Math.min(this.canvasWidth, this.canvasHeight)));
@@ -809,7 +903,7 @@ class PixiRocketAnimationSystem {
             this.rocket.y = this.startPosition.y;
             this.rocket.rotation = 0;
             this.rocket.alpha = 1;
-            this.rocket.scale.set(0.8);
+            this.updateRocketScale(); // Use responsive scaling
             
             // Reset smooth rotation properties
             this.targetRotation = 0;
@@ -876,7 +970,7 @@ class PixiRocketAnimationSystem {
         this.rocket.x = this.startPosition.x;
         this.rocket.y = this.startPosition.y;
         this.rocket.alpha = 1;
-        this.rocket.scale.set(0.8);
+        this.updateRocketScale(); // Use responsive scaling
         
         this.currentPosition = { ...this.startPosition };
         this.targetPosition = { ...this.startPosition };

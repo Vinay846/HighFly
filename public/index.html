@@ -189,7 +189,7 @@
             </div>
             <div class="user-info">
                 <div class="user-name">Shreya</div>
-                <div class="balance">₹<span id="balance">5000.00</span> INR</div>
+                <div class="balance"><span id="balance">5000.00</span></div>
                 <a href="#" class="how-to-play">HOW TO PLAY</a>
             </div>
         </div>
@@ -311,7 +311,7 @@
                                 <div class="bet-btn">
                                     <button class="main-action-button bet-state" id="mainActionButton1" onclick="handleMainAction(1)">
                                         <span class="button-label">BET</span>
-                                        <span class="button-amount"><span id="mainButtonAmount1">100.00</span> INR</span>
+                                        <span class="button-amount"><span id="mainButtonAmount1">100.00</span></span>
                                     </button>    
                                 </div>
                             </div>
@@ -365,7 +365,7 @@
                                 <div class="bet-btn">
                                     <button class="main-action-button bet-state" id="mainActionButton2" onclick="handleMainAction(2)">
                                         <span class="button-label">BET</span>
-                                        <span class="button-amount"><span id="mainButtonAmount2">100.00</span> INR</span>
+                                        <span class="button-amount"><span id="mainButtonAmount2">100.00</span></span>
                                     </button>
                                 </div>
                             </div>
@@ -567,9 +567,15 @@
     <!-- Game Launch Loading Screen -->
     <div class="game-loader-overlay" id="gameLoaderOverlay" style="display: flex;">
         <div class="game-loader-content">
-            <div class="loader-spinner"></div>
-            <div class="loader-text">Loading Game</div>
-            <div class="loader-subtext">Connecting to server...</div>
+            <div class="loader-logo">
+                <span class="logo-diamond">♦</span>
+                <span class="logo-text">flairstudioz</span>
+            </div>
+            <div class="loader-progress-container">
+                <div class="loader-progress-bar">
+                    <div class="loader-progress-fill" id="loaderProgressFill"></div>
+                </div>
+            </div>
         </div>
     </div>
 </body>

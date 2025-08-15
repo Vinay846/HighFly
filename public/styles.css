@@ -707,8 +707,8 @@ body {
 /* Legacy Rocket Styles (for fallback) */
 .rocket {
     position: absolute;
-    width: 80px;
-    height: 80px;
+    width: 146px;
+    height: 146px;
     z-index: 5;
     display: none;
     transition: filter 0.3s ease;
@@ -1060,12 +1060,15 @@ input.disabled {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.9);
+    background: #0D0D0D;
+    background-image: 
+        radial-gradient(circle at 25% 25%, rgba(255, 20, 147, 0.02) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(255, 20, 147, 0.02) 0%, transparent 50%),
+        linear-gradient(45deg, transparent 49%, rgba(255, 20, 147, 0.01) 50%, transparent 51%);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    backdrop-filter: blur(5px);
 }
 
 .game-loader-content {
@@ -1074,41 +1077,69 @@ input.disabled {
     align-items: center;
     justify-content: center;
     text-align: center;
+    gap: 60px;
 }
 
-.loader-spinner {
-    width: 80px;
-    height: 80px;
-    border: 6px solid rgba(0, 191, 255, 0.1);
-    border-top: 6px solid #00BFFF;
-    border-radius: 50%;
-    animation: loaderSpin 1.2s linear infinite;
-    margin-bottom: 30px;
+.loader-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: logoFadeIn 1.5s ease-out;
 }
 
-@keyframes loaderSpin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.logo-diamond {
+    font-size: 40px;
+    color: #FF1493;
+    filter: drop-shadow(0 0 10px rgba(255, 20, 147, 0.5));
 }
 
-.loader-text {
-    color: #ffffff;
-    font-size: 32px;
-    font-weight: bold;
-    margin-bottom: 15px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+.logo-text {
+    font-size: 48px;
+    font-weight: 300;
+    color: #FF1493;
+    font-family: 'Arial', sans-serif;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(255, 20, 147, 0.3);
 }
 
-.loader-subtext {
-    color: #cccccc;
-    font-size: 18px;
-    opacity: 0.8;
-    animation: loaderFade 2s ease-in-out infinite;
+.loader-progress-container {
+    width: 300px;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
 }
 
-@keyframes loaderFade {
-    0%, 100% { opacity: 0.8; }
-    50% { opacity: 0.5; }
+.loader-progress-bar {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.loader-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #FF1493, #FF69B4);
+    border-radius: 4px;
+    width: 0%;
+    animation: progressFill 3s ease-out forwards;
+    box-shadow: 0 0 10px rgba(255, 20, 147, 0.5);
+}
+
+@keyframes logoFadeIn {
+    0% { 
+        opacity: 0; 
+        transform: translateY(20px);
+    }
+    100% { 
+        opacity: 1; 
+        transform: translateY(0);
+    }
+}
+
+@keyframes progressFill {
+    0% { width: 0%; }
+    100% { width: 100%; }
 }
 
 .bet-presets {
@@ -1227,12 +1258,37 @@ button.preset-btn.disabled:hover,
 }
 
 .main-action-button.bet-state:disabled {
-    background: #666;
-    cursor: not-allowed;
-    transform: none;
-    border-color: #666;
-    opacity: 0.6;
-    box-shadow: none;
+    background: #444 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    border-color: #333 !important;
+    opacity: 0.4 !important;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.7) !important;
+    filter: grayscale(100%) brightness(0.5) !important;
+    pointer-events: none !important;
+}
+
+/* Disabled styles for all main action button states */
+.main-action-button:disabled,
+.main-action-button.disabled {
+    background: #444 !important;
+    color: #666 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    border-color: #333 !important;
+    opacity: 0.4 !important;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.7) !important;
+    filter: grayscale(100%) brightness(0.5) !important;
+    pointer-events: none !important;
+}
+
+.main-action-button:disabled:hover,
+.main-action-button.disabled:hover {
+    background: #444 !important;
+    color: #666 !important;
+    transform: none !important;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.7) !important;
+    filter: grayscale(100%) brightness(0.5) !important;
 }
 
 .main-action-button.cashout-state {
@@ -1309,10 +1365,12 @@ button.preset-btn.disabled:hover,
 }
 
 .toast.success {
-    background: linear-gradient(45deg, rgba(0, 255, 136, 0.9), rgba(0, 204, 102, 0.9));
+    background: linear-gradient(45deg, #00E5A6, #00D199);
     color: #000;
     border: 1px solid #00ff88;
-    box-shadow: 0 4px 20px rgba(0, 255, 136, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 255, 136, 0.4);
+    font-weight: bold;
+    font-size: 14px;
 }
 
 .toast.info {
@@ -1401,10 +1459,17 @@ button.preset-btn.disabled:hover,
     }
 }
 
+/* Base mobile styles (max-width: 768px) */
 @media (max-width: 768px) {
     body {
         overflow-x: hidden;
         overflow-y: auto;
+    }
+
+    /* Mobile Rocket Size */
+    .rocket {
+        width: 86px;
+        height: 86px;
     }
 
     .logo {
@@ -1420,7 +1485,8 @@ button.preset-btn.disabled:hover,
         flex: 1;
         order: 1;
         display: flex;
-        flex-direction: column;
+        position: relative;
+        min-height: 300px;
     }
     
     .game-canvas {
@@ -1455,8 +1521,8 @@ button.preset-btn.disabled:hover,
     }
 
     .sidebar.visible {
-        max-height: 450px; /* Increased to allow scrolling of bet list */
-        overflow-y: auto; /* Allow scrolling within sidebar */
+        max-height: 450px;
+        overflow-y: auto;
     }
     
     .bet-list {
@@ -1473,33 +1539,6 @@ button.preset-btn.disabled:hover,
     .bet-headers {
         flex-shrink: 0;
         padding: 0 15px;
-    }
-
-    .control-panel {
-        flex-direction: column;
-        gap: 10px;
-        padding: 10px 12px;
-        min-height: 120px;
-        align-items: center;
-        scale: none;
-        left: 0;
-        flex-shrink: 0; /* Don't shrink */
-    }
-
-    .bet-section {
-        max-width: none;
-        padding: 12px;
-        gap: 10px;
-        max-width: 450px;
-    }
-
-    .main-action-button {
-        height: 100px;
-        font-size: 13px;
-    }
-
-    .bet-btn {
-        width: 120px;
     }
 
     .game-logo {
@@ -1527,7 +1566,165 @@ button.preset-btn.disabled:hover,
     }
 }
 
-@media (max-width: 480px) {
+/* Mobile Portrait Orientation (default mobile behavior) */
+@media (max-width: 768px) and (orientation: portrait) {
+    .game-area {
+        flex-direction: column;
+        padding: 0;
+    }
+
+    .control-panel {
+        order: 2;
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px 12px;
+        min-height: 120px;
+        align-items: center;
+        scale: none;
+        left: 0;
+        flex-shrink: 0;
+        width: 100%;
+        max-width: none;
+    }
+
+    .bet-section {
+        padding: 12px;
+        gap: 10px;
+        max-width: none;
+        width: 100%;
+    }
+
+    .main-action-button {
+        height: 100px;
+        font-size: 13px;
+    }
+
+    .bet-btn {
+        width: 120px;
+    }
+}
+
+/* Mobile Landscape Orientation - 50/50 Split with Dynamic Scaling
+   Space distribution:
+   - Game canvas: 50% of viewport width
+   - Control panel: 50% of viewport width
+   - Dynamic scaling based on available height/width
+*/
+@media (max-width: 768px) and (orientation: landscape) {
+    .game-area {
+        flex-direction: row;
+        padding: 0;
+        height: calc(100vh - 120px); /* Account for header + history */
+        min-height: 200px;
+        max-height: 100vh;
+        overflow: hidden;
+    }
+
+    .control-panel {
+        order: 2;
+        flex-direction: column;
+        gap: min(1vh, 6px);
+        padding: min(1vh, 6px) min(1vw, 8px);
+        height: 100%;
+        overflow-y: auto;
+        align-items: stretch;
+        scale: none;
+        left: 0;
+        flex-shrink: 0;
+        width: 50vw;
+        max-width: 50%;
+        border-left: 1px solid rgba(0, 191, 255, 0.2);
+        box-sizing: border-box;
+    }
+
+    .bet-section {
+        padding: min(1vh, 6px);
+        gap: min(0.5vh, 4px);
+        max-width: none;
+        width: 100%;
+        flex-shrink: 0;
+        height: auto;
+        box-sizing: border-box;
+    }
+
+    .bet-controls {
+        flex-wrap: nowrap;
+        gap: min(0.5vw, 4px);
+        align-items: flex-end;
+        width: 100%;
+        height: auto;
+    }
+
+    .bet-amount-container {
+        flex: 1;
+        min-width: 0;
+        max-width: calc(100% - min(20vw, 90px));
+    }
+
+    .bet-amount-display {
+        padding: 1px;
+        min-height: max(6vh, 35px);
+    }
+
+    .bet-adjust-btn {
+        width: max(3vh, 18px);
+        height: max(3vh, 18px);
+        margin: min(0.5vh, 4px);
+        font-size: max(1.5vh, 10px);
+        padding: min(1vh, 6px);
+    }
+
+    .bet-btn {
+        width: min(18vw, 85px);
+        height: max(12vh, 65px);
+        flex-shrink: 0;
+    }
+
+    .main-action-button {
+        height: 100%;
+        font-size: max(1.8vh, 9px);
+        line-height: 1.2;
+    }
+
+    .button-label {
+        font-size: max(1.5vh, 8px);
+    }
+
+    .button-amount {
+        font-size: max(1.6vh, 9px);
+    }
+
+    .bet-presets {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1px;
+        height: auto;
+    }
+
+    .preset-btn {
+        font-size: max(1.2vh, 7px);
+        padding: min(0.5vh, 3px) 1px;
+        min-height: max(4vh, 20px);
+    }
+
+    .bet-amount-input {
+        font-size: max(1.8vh, 10px);
+        padding: min(0.8vh, 4px) min(0.4vw, 2px);
+        min-width: min(8vw, 35px);
+        min-height: max(4vh, 25px);
+    }
+
+    .game-canvas {
+        flex: 1;
+        order: 1;
+        width: 50vw;
+        max-width: 50%;
+        height: 100%;
+        box-sizing: border-box;
+    }
+}
+
+/* Ultra-small mobile devices - Portrait */
+@media (max-width: 480px) and (orientation: portrait) {
     .control-panel {
         padding: 8px 10px;
         gap: 8px;
@@ -1586,6 +1783,283 @@ button.preset-btn.disabled:hover,
     }
 }
 
+/* Ultra-small mobile devices - Landscape (50/50 Split with Aggressive Scaling) */
+@media (max-width: 480px) and (orientation: landscape) {
+    .game-area {
+        height: calc(100vh - 100px); /* Tighter header space */
+        min-height: 180px;
+        overflow: hidden;
+    }
+
+    .control-panel {
+        width: 50vw;
+        max-width: 50%;
+        padding: min(0.8vh, 4px) min(0.8vw, 6px);
+        gap: min(0.8vh, 4px);
+        height: 100%;
+        overflow-y: auto;
+        box-sizing: border-box;
+    }
+
+    .bet-section {
+        padding: min(0.8vh, 4px);
+        gap: min(0.4vh, 3px);
+        height: auto;
+        box-sizing: border-box;
+    }
+
+    .bet-controls {
+        flex-wrap: nowrap;
+        gap: min(0.4vw, 3px);
+        align-items: flex-end;
+        height: auto;
+    }
+
+    .bet-amount-container {
+        flex: 1;
+        min-width: 0;
+        max-width: calc(100% - min(16vw, 75px));
+    }
+
+    .bet-amount-display {
+        padding: 1px;
+        min-height: max(5vh, 30px);
+    }
+
+    .bet-adjust-btn {
+        width: max(2.5vh, 16px);
+        height: max(2.5vh, 16px);
+        margin: min(0.4vh, 3px);
+        font-size: max(1.2vh, 8px);
+        padding: min(0.8vh, 4px);
+    }
+
+    .bet-btn {
+        width: min(15vw, 70px);
+        height: max(10vh, 55px);
+        flex-shrink: 0;
+    }
+
+    .main-action-button {
+        height: 100%;
+        font-size: max(1.4vh, 8px);
+        line-height: 1.1;
+    }
+
+    .button-label {
+        font-size: max(1.2vh, 7px);
+    }
+
+    .button-amount {
+        font-size: max(1.3vh, 8px);
+    }
+
+    .preset-btn {
+        font-size: max(1vh, 6px);
+        padding: min(0.4vh, 2px) 1px;
+        min-height: max(3.5vh, 18px);
+    }
+
+    .bet-amount-input {
+        font-size: max(1.4vh, 9px);
+        padding: min(0.6vh, 3px) min(0.3vw, 1px);
+        min-width: min(7vw, 30px);
+        min-height: max(3.5vh, 22px);
+    }
+
+    .game-canvas {
+        width: 50vw;
+        max-width: 50%;
+        height: 100%;
+        box-sizing: border-box;
+    }
+
+    .game-logo {
+        min-width: min(20vw, 100px);
+        padding-top: calc(49 / 87 * 25%);
+    }
+
+    .multiplier-display {
+        font-size: max(3vh, 1.8rem);
+    }
+
+    .balance {
+        font-size: max(1.4vh, 10px);
+        padding: min(0.6vh, 4px) min(1.2vw, 8px);
+    }
+
+    .countdown-container {
+        width: min(40vw, 180px);
+        padding: min(1.2vh, 8px) min(1.5vw, 10px);
+        top: 70%;
+    }
+    
+    .countdown-text {
+        font-size: max(1.4vh, 10px);
+        margin-bottom: min(0.8vh, 6px);
+    }
+    
+    .countdown-bar-container {
+        height: min(0.6vh, 4px);
+    }
+}
+
+/* Fallback for devices without orientation support or very short screens */
+@media (max-width: 480px) and (max-height: 600px) {
+    .game-area {
+        flex-direction: row;
+        height: calc(100vh - 90px);
+        min-height: 160px;
+        overflow: hidden;
+    }
+    
+    .control-panel {
+        width: 50vw;
+        max-width: 50%;
+        height: 100%;
+        overflow-y: auto;
+        box-sizing: border-box;
+    }
+
+    .game-canvas {
+        width: 50vw;
+        max-width: 50%;
+        height: 100%;
+        box-sizing: border-box;
+    }
+}
+
+
+/* Tablet Portrait (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) and (orientation: portrait) {
+    .control-panel {
+        scale: 0.9;
+        gap: 12px;
+        padding: 12px 16px;
+    }
+    
+    .bet-section {
+        max-width: 400px;
+        padding: 14px;
+    }
+    
+    .main-action-button {
+        height: 110px;
+        font-size: 14px;
+    }
+    
+    .bet-btn {
+        width: 130px;
+    }
+}
+
+/* Tablet Landscape (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) and (orientation: landscape) {
+    .control-panel {
+        scale: 0.85;
+        gap: 14px;
+        padding: 14px 18px;
+    }
+    
+    .bet-section {
+        max-width: 280px;
+        padding: 16px;
+    }
+}
+
+/* Large Mobile Landscape (481px - 768px) - 50/50 Split */
+@media (min-width: 481px) and (max-width: 768px) and (orientation: landscape) {
+    .game-area {
+        height: calc(100vh - 110px); /* Account for header + history */
+        min-height: 220px;
+        overflow: hidden;
+    }
+
+    .control-panel {
+        width: 50vw;
+        max-width: 50%;
+        padding: min(1.2vh, 8px) min(1.2vw, 10px);
+        gap: min(1vh, 6px);
+        height: 100%;
+        overflow-y: auto;
+        box-sizing: border-box;
+    }
+    
+    .bet-section {
+        padding: min(1.2vh, 8px);
+        gap: min(0.8vh, 6px);
+        height: auto;
+        box-sizing: border-box;
+    }
+
+    .bet-controls {
+        flex-wrap: nowrap;
+        gap: min(0.6vw, 5px);
+        align-items: flex-end;
+        height: auto;
+    }
+
+    .bet-amount-container {
+        flex: 1;
+        min-width: 0;
+        max-width: calc(100% - min(18vw, 95px));
+    }
+
+    .bet-amount-display {
+        padding: 2px;
+        min-height: max(7vh, 40px);
+    }
+
+    .bet-adjust-btn {
+        width: max(3.5vh, 20px);
+        height: max(3.5vh, 20px);
+        margin: min(0.8vh, 5px);
+        font-size: max(1.8vh, 11px);
+        padding: min(1.2vh, 7px);
+    }
+    
+    .bet-btn {
+        width: min(16vw, 90px);
+        height: max(13vh, 70px);
+        flex-shrink: 0;
+    }
+    
+    .main-action-button {
+        height: 100%;
+        font-size: max(1.8vh, 10px);
+        line-height: 1.2;
+    }
+
+    .button-label {
+        font-size: max(1.6vh, 9px);
+    }
+
+    .button-amount {
+        font-size: max(1.7vh, 10px);
+    }
+    
+    .preset-btn {
+        font-size: max(1.3vh, 8px);
+        padding: min(0.6vh, 4px) min(0.3vw, 2px);
+        min-height: max(4.5vh, 25px);
+    }
+    
+    .bet-amount-input {
+        font-size: max(2vh, 11px);
+        padding: min(0.8vh, 5px) min(0.5vw, 3px);
+        min-width: min(9vw, 40px);
+        min-height: max(5vh, 30px);
+    }
+
+    .game-canvas {
+        width: 50vw;
+        max-width: 50%;
+        height: 100%;
+        box-sizing: border-box;
+    }
+}
+
+/* Desktop and larger screens */
 @media (min-width: 769px) {
     .history-trail-mobile {
         display: none;
