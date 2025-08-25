@@ -984,6 +984,28 @@ class PixiRocketAnimationSystem {
         return true;
     }
 
+    hideRocket() {
+        if (!this.rocket) {
+            console.warn('⚠️ Rocket not available');
+            return;
+        }
+        
+        this.rocket.visible = false;
+        this.isRocketVisible = false;
+        console.log('🎬 Rocket animation hidden');
+    }
+
+    showRocket() {
+        if (!this.rocket) {
+            console.warn('⚠️ Rocket not available');
+            return;
+        }
+        
+        this.rocket.visible = true;
+        this.isRocketVisible = true;
+        console.log('🎬 Rocket animation shown');
+    }
+
     toggleDebugVisibility() {
         // Create debug circle if it doesn't exist
         if (this.rocket && !this.rocket.debugCircle) {

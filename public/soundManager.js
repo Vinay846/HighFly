@@ -149,7 +149,10 @@ class SoundManager {
     }
 
     playBackgroundMusic() {
-        if (!this.isEnabled || !this.sounds.bgMusic || this.backgroundMusicPlaying || !this.tabVisible) return;
+        if (!this.sounds.bgMusic || this.backgroundMusicPlaying || !this.tabVisible) return;
+        
+        // Check if music is enabled in settings (music controls background music)
+        if (window.settingsState && !window.settingsState.music) return;
         
         try {
             this.sounds.bgMusic.currentTime = 0;
@@ -180,7 +183,10 @@ class SoundManager {
     }
 
     playPlaneSound() {
-        if (!this.isEnabled || !this.sounds.planeSound || this.planeSoundPlaying || !this.tabVisible) return;
+        if (!this.sounds.planeSound || this.planeSoundPlaying || !this.tabVisible) return;
+        
+        // Check if sound is enabled in settings (sound controls game effects)
+        if (window.settingsState && !window.settingsState.sound) return;
         
         try {
             this.sounds.planeSound.currentTime = 0;
@@ -211,7 +217,10 @@ class SoundManager {
     }
 
     playCrashSound() {
-        if (!this.isEnabled || !this.sounds.crashSound || !this.tabVisible) return;
+        if (!this.sounds.crashSound || !this.tabVisible) return;
+        
+        // Check if sound is enabled in settings (sound controls game effects)
+        if (window.settingsState && !window.settingsState.sound) return;
         
         try {
             this.sounds.crashSound.currentTime = 0;
@@ -232,7 +241,10 @@ class SoundManager {
     }
 
     playCashoutSound() {
-        if (!this.isEnabled || !this.sounds.cashoutSound || !this.tabVisible) return;
+        if (!this.sounds.cashoutSound || !this.tabVisible) return;
+        
+        // Check if sound is enabled in settings (sound controls game effects)
+        if (window.settingsState && !window.settingsState.sound) return;
         
         try {
             this.sounds.cashoutSound.currentTime = 0;

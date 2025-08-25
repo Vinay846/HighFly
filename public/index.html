@@ -39,6 +39,33 @@
             margin-right: 8px;
             transform: scale(1.2);
             cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #00E5FF;
+            border-radius: 50%;
+            background: transparent;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .auto-cashout-checkbox input[type="checkbox"]:checked {
+            /* background: #00E5FF;
+            border-color: #00E5FF; */
+        }
+        
+        .auto-cashout-checkbox input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            background: #00E5FF;
+            border-radius: 50%;
         }
         
         .auto-cashout-checkbox label {
@@ -100,10 +127,11 @@
         
         .multiplier-display.crashed {
             color: #ffffff !important;
-            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            text-shadow: none !important;
             animation: flyAwayPulse 0.5s ease-in-out;
-            font-size: 2.5rem;
+            font-size: 3.5rem;
             z-index: 200;
+            font-family: 'Staatliches';
         }
         
         @keyframes flyAwayPulse {
@@ -184,26 +212,163 @@
         <!-- Header -->
         <div class="header">
             <div class="left-header">
-                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <div class="menu-toggle" onclick="toggleSettingsSidebar()"></div>
                 <div class="logo"></div>
             </div>
             <div class="user-info">
-                <div class="user-name">Shreya</div>
+                <div class="user-name">
+                    <div class="user-avatar-small" onclick="showAvatarModal()">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiMzMzMiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=" alt="User Avatar" id="headerUserAvatar">
+                    </div>
+                    <span id="userNameDisplay">Shreya</span>
+                </div>
                 <div class="balance"><span id="balance">5000.00</span></div>
-                <a href="#" class="how-to-play">HOW TO PLAY</a>
+                <a href="#" class="how-to-play" onclick="showGameRules()">HOW TO PLAY</a>
             </div>
         </div>
 
-        <!-- History Trail -->
-        <div class="history-trail-mobile">
-            <div class="history-items" id="historyItemsMobile">
-                <!-- History items will be populated here for mobile -->
+        <!-- Settings Sidebar -->
+        <div class="settings-sidebar" id="settingsSidebar">
+            <div class="settings-header">
+                <div class="user-profile">
+                    <div class="user-avatar" onclick="showAvatarModal()">
+                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiMzMzMiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=" alt="User Avatar" id="currentUserAvatar">
+                    </div>
+                    <div class="user-details">
+                        <div class="user-name">Naenn</div>
+                    </div>
+                    <button class="change-avatar-btn" onclick="showAvatarModal()">Change Avatar</button>
+                </div>
             </div>
-            <button class="history-toggle" onclick="toggleHistoryTrailMobile()">
-                <img src="./assets/images/history-grey.svg" alt="History" style="width: 16px; height: 16px;">
-                <span>HISTORY</span>
-            </button>
+            
+            <div class="settings-content">
+                <div class="settings-section">
+                    <div class="setting-item">
+                        <span class="setting-label">Sound</span>
+                        <div class="toggle-switch" onclick="toggleSound()">
+                            <div class="toggle-slider" id="soundToggle"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <span class="setting-label">Music</span>
+                        <div class="toggle-switch" onclick="toggleMusic()">
+                            <div class="toggle-slider" id="musicToggle"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <span class="setting-label">Animation</span>
+                        <div class="toggle-switch" onclick="toggleAnimation()">
+                            <div class="toggle-slider" id="animationToggle"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-divider"></div>
+                
+                <div class="settings-section">
+                    <div class="setting-link" onclick="showFreeBets()">Free Bets</div>
+                    <div class="setting-link" onclick="showBetHistory()">My Bet History</div>
+                    <div class="setting-link" onclick="showGameLimits()">Game Limits</div>
+                    <div class="setting-link" onclick="showGameRules()">How to Play</div>
+                    <div class="setting-link active" onclick="showGameRules()">Game Rules</div>
+                    <div class="setting-link" onclick="showProvablyFair()">Provably Fair settings</div>
+                    <div class="setting-link" onclick="showGameRoom()">Game Room: Room #2</div>
+                </div>
+            </div>
         </div>
+
+        <!-- Game Rules Modal -->
+        <div class="game-rules-modal" id="gameRulesModal">
+            <div class="game-rules-content">
+                <div class="game-rules-header">
+                    <h2 class="game-rules-title">Game Rules</h2>
+                    <button class="close-btn" onclick="closeGameRules()">×</button>
+                </div>
+                
+                <div class="game-rules-body">
+                    <p class="game-intro">
+                        Aviator is a new generation of Igaming entertainment. You can win many times more. In essence Aviator is built on a provably fair system which is currently the only guarantee of honesty in the gambling industry.
+                    </p>
+                    
+                    <h3 class="how-to-play-title">How to Play</h3>
+                    
+                    <div class="game-video-placeholder">
+                        <!-- Placeholder for game video/animation -->
+                    </div>
+                    
+                    <p class="steps-intro">Aviator is as easy to play as 1-2-3:</p>
+                    
+                    <div class="steps-container">
+                        <div class="step-item">
+                            <div class="step-number">01</div>
+                            <div class="step-video-placeholder"></div>
+                            <p class="step-text">BET before take off</p>
+                        </div>
+                        
+                        <div class="step-item">
+                            <div class="step-number">02</div>
+                            <div class="step-video-placeholder"></div>
+                            <p class="step-text">Watch as your lucky plane takes off and your winnings increase.</p>
+                        </div>
+                        
+                        <div class="step-item">
+                            <div class="step-number">03</div>
+                            <div class="step-video-placeholder"></div>
+                            <p class="step-text">Cash out before the plane disappears and wins X times more!</p>
+                        </div>
+                    </div>
+                    
+                    <p class="game-conclusion">
+                        But remember, if you did not have time to cash out before the lucky plane flies away, your bet will be lost. Aviator is pure excitement! Risk and win, its all in your hands!
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- My Bet History Modal -->
+        <div class="bet-history-modal" id="betHistoryModal">
+            <div class="bet-history-content">
+                <div class="bet-history-header">
+                    <h2 class="bet-history-title">My Bet History</h2>
+                    <button class="close-btn" onclick="closeBetHistory()">×</button>
+                </div>
+                
+                <div class="bet-history-body">
+                    <div class="bet-history-table">
+                        <div class="bet-history-headers">
+                            <div class="header-date">Date</div>
+                            <div class="header-bet">Bet INR X</div>
+                            <div class="header-cashout">Cash out INR</div>
+                        </div>
+                        
+                        <div class="bet-history-entries" id="betHistoryEntries">
+                            <!-- Bet entries will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Avatar Selection Modal -->
+        <div class="avatar-modal" id="avatarModal">
+            <div class="avatar-content">
+                <div class="avatar-header">
+                    <h2 class="avatar-title">Select Avatar</h2>
+                    <button class="close-btn" onclick="closeAvatarModal()">×</button>
+                </div>
+                
+                <div class="avatar-grid" id="avatarGrid">
+                    <!-- Avatar options will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Black Overlay -->
+        <div class="menu-overlay" id="menuOverlay"></div>
+
+
 
         <!-- Main Content -->
         <div class="main-content">
@@ -377,6 +542,9 @@
         
         <!-- Toast Messages -->
         <div class="toast" id="toast"></div>
+        
+        <!-- Black Blanket Overlay -->
+        <div class="blanket-overlay" id="blanketOverlay"></div>
     </div>
 
     <!-- Audio Elements -->
@@ -498,7 +666,7 @@
             const isMobile = window.innerWidth <= 768;
             
             if (isMobile) {
-                // Move sidebar to be 4th child of container (after header, history-trail-mobile, main-content)
+                // Move sidebar to be 3rd child of container (after header, main-content)
                 if (sidebar.parentElement !== container) {
                     container.appendChild(sidebar);
                 }
@@ -524,16 +692,7 @@
         // Handle window resize
         window.addEventListener('resize', handleSidebarPosition);
         
-        // Toggle history trail mobile function
-        window.toggleHistoryTrailMobile = function() {
-            const historyTrailMobile = document.querySelector('.history-trail-mobile');
-            console.log('toggleHistoryTrailMobile called', { historyTrailMobile: !!historyTrailMobile });
-            
-            if (historyTrailMobile) {
-                historyTrailMobile.classList.toggle('expanded');
-                console.log('Toggled expanded class on history-trail-mobile', historyTrailMobile.classList.contains('expanded'));
-            }
-        };
+
         
         // Toggle sidebar function (for desktop or other uses)
         window.toggleSidebar = function() {
@@ -568,7 +727,7 @@
     <div class="game-loader-overlay" id="gameLoaderOverlay" style="display: flex;">
         <div class="game-loader-content">
             <div class="loader-logo">
-                <span class="logo-diamond">♦</span>
+                <span class="logo-diamond"></span>
                 <span class="logo-text">flairstudioz</span>
             </div>
             <div class="loader-progress-container">

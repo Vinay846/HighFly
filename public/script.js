@@ -1,6 +1,7 @@
 // Game state variables (enhanced for PixiJS integration)
 let gameState = 'connecting';
 let currentMultiplier = 1.00;
+let crashedMultiplier = 1.00; // Store the actual crashed multiplier value
 let currentH = 0;
 let userBalance = 5000;
 let userCurrency = 'USD'; // Default currency, will be updated from server
@@ -11,6 +12,23 @@ const maxReconnectAttempts = 5;
 let roundCounter = 0;
 let gameHistory = [];
 let gameStarted = false;
+
+// Settings state variables
+let settingsState = {
+    sound: false, // Initially off
+    music: true,  // Initially on
+    animation: true // Initially on
+};
+
+// User state variables
+let userState = {
+    name: 'Shreya',
+    avatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiMzMzMiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo='
+};
+
+// Make settingsState globally available
+window.settingsState = settingsState;
+window.userState = userState;
 
 // Bet configuration constants
 const MAX_BET_AMOUNT = 10000;
@@ -158,24 +176,8 @@ const bets = {
 let countdownInterval = null;
 let countdownAnimationId = null;
 
-// DOM elements
-const elements = {
-    multiplierDisplay: document.getElementById('multiplierDisplay'),
-    gameLogo: document.getElementById('gameLogo'),
-    rocket: document.getElementById('rocket'), // Legacy DOM rocket (fallback)
-    trailContainer: document.getElementById('trailContainer'),
-    gameCanvas: document.getElementById('gameCanvas'),
-    gameStatus: document.getElementById('gameStatus'),
-    toast: document.getElementById('toast'),
-    balance: document.getElementById('balance'),
-    historyItems: document.getElementById('historyItems'),
-    historyItemsMobile: document.getElementById('historyItemsMobile'),
-    historyTrailInGame: document.getElementById('historyTrailInGame'),
-    betList: document.getElementById('betList'),
-    countdownContainer: document.getElementById('countdownContainer'),
-    countdownText: document.getElementById('countdownText'),
-    countdownBar: document.getElementById('countdownBar')
-};
+// DOM elements - will be initialized after DOM loads
+let elements = {};
 
 // PixiJS Integration Check
 function checkPixiJSStatus() {
@@ -340,6 +342,19 @@ function handleServerMessage(data) {
         return;
     }
     
+    // Handle user data updates from server
+    if (data.userData || data.user_data) {
+        const userData = data.userData || data.user_data;
+        handleServerUserData(userData);
+        return;
+    }
+    
+    // Handle user data response from server
+    if (data.get === 'user_data' && data.user) {
+        handleServerUserData(data.user);
+        return;
+    }
+    
     // Handle responses with "on" property (set options responses)
     if (data.on && data.on.set === 'options') {
         console.log('⚙️ Options set response:', data);
@@ -406,6 +421,12 @@ function handleAuthenticationResponse(data) {
         console.log('📋 Requesting game list...');
         socket.send(JSON.stringify({
             "get": "game_list"
+        }));
+        
+        // Request user data from server
+        console.log('👤 Requesting user data...');
+        socket.send(JSON.stringify({
+            "get": "user_data"
         }));
         
         showToast('Authentication successful!', 'success');
@@ -606,14 +627,11 @@ function handlePauseState(data) {
     
     // Special handling for countdown = 10 (start of pause with FLEW AWAY! text)
     if (countdown === 10) {
-        // Show FLEW AWAY! text in the center (rocket continues falling from crash state)
-        console.log('💥 Showing FLEW AWAY! text - rocket continues falling from crash state');
+        // Show FLEW AWAY! overlay (rocket continues falling from crash state)
+        console.log('💥 Showing FLEW AWAY! overlay - rocket continues falling from crash state');
         
-        // Update display with FLEW AWAY! text - keep in middle of canvas
-        elements.multiplierDisplay.textContent = 'FLEW AWAY!';
-        elements.multiplierDisplay.classList.add('crashed');
-        elements.multiplierDisplay.style.color = '#ffffff';
-        elements.multiplierDisplay.classList.add('show'); // Keep visible during crash
+        // Show flew away message with crashed multiplier
+        showFlewAwayMessage(crashedMultiplier);
         
         // Hide game logo during crash sequence
         elements.gameLogo.style.display = 'none';
@@ -633,13 +651,21 @@ function handlePauseState(data) {
     // Handle countdown > 5 (continue showing FLEW AWAY! during falling animation)
     if (countdown > 5) {
         console.log(`⏸️ Pause state during crash sequence (countdown: ${countdown}), maintaining FLEW AWAY! display`);
+        
+        // Ensure blanket is visible
+        const blanketOverlay = document.getElementById('blanketOverlay');
+        if (blanketOverlay) {
+            blanketOverlay.classList.add('visible');
+        }
+        
         // Keep FLEW AWAY! text visible, rocket continues falling
-        elements.multiplierDisplay.textContent = 'FLEW AWAY!';
-        elements.multiplierDisplay.classList.add('crashed');
-        elements.multiplierDisplay.style.color = '#ffffff';
-        elements.multiplierDisplay.classList.add('show');
+        if (!elements.multiplierDisplay.classList.contains('crashed')) {
+            elements.multiplierDisplay.classList.add('crashed');
+            elements.multiplierDisplay.classList.add('show');
+            elements.multiplierDisplay.innerHTML = `FLEW AWAY!<br><span style="color: #00FFFF; font-size: 6.5rem;">${crashedMultiplier.toFixed(2)}X</span>`;
+        }
         elements.gameLogo.style.display = 'none';
-        updateGameStatus('crashed', `Flew away at ${currentMultiplier.toFixed(2)}x`);
+        updateGameStatus('crashed', `Flew away at ${crashedMultiplier.toFixed(2)}x`);
         // Keep countdown loader hidden during crash sequence
         hideCountdownLoader();
         return;
@@ -665,11 +691,8 @@ function handlePauseState(data) {
         hideCountdownLoader();
         updateGameStatus('pause', 'Ready to start');
         
-        // Reset crash display elements
-        elements.multiplierDisplay.textContent = '1.00x';
-        elements.multiplierDisplay.classList.remove('crashed');
-        elements.multiplierDisplay.style.color = ''; // Reset color
-        elements.multiplierDisplay.classList.remove('show');
+        // Hide flew away message and blanket
+        hideFlewAwayMessage();
         
         // Show game logo
         elements.gameLogo.style.display = 'block';
@@ -697,18 +720,16 @@ function handlePauseState(data) {
     // Normal pause handling for countdown > 0
     updateGameStatus('pause', `Accepting bets${countdown > 0 ? ` - ${countdown.toFixed(1)}s` : ''}`);
     
-    // Reset crash display elements
-    elements.multiplierDisplay.textContent = '1.00x';
-    elements.multiplierDisplay.classList.remove('crashed');
-    elements.multiplierDisplay.style.color = ''; // Reset color
-    elements.multiplierDisplay.classList.remove('show');
-    
     // Show game logo
     elements.gameLogo.style.display = 'block';
     
     // Show countdown loader for countdown > 0 and <= 5
     if (countdown > 0 && countdown <= 5) {
         console.log('🕐 Showing countdown loader for betting phase:', countdown);
+        
+        // Hide flew away message and blanket when bet accepting starts
+        hideFlewAwayMessage();
+        
         showCountdownLoader(countdown);
         
         // Clear any existing countdown animation
@@ -785,6 +806,9 @@ function handleStartedState(data) {
     elements.multiplierDisplay.textContent = '1.00x';
     elements.multiplierDisplay.classList.remove('crashed');
     elements.multiplierDisplay.style.color = '';
+    
+    // Reset crashed multiplier for new game
+    crashedMultiplier = 1.00;
     
     // Start rocket animation and sounds - but don't move rocket yet
     const rocketAnimation = getRocketAnimation();
@@ -942,6 +966,9 @@ function handleCrashState(data) {
     
     // Clear saved game state since round is ending
     clearSavedGameState();
+    
+    // Store the crashed multiplier value
+    crashedMultiplier = crashMultiplier;
     
     // Update current multiplier to crash value
     currentMultiplier = crashMultiplier;
@@ -1229,10 +1256,10 @@ function cashOut(playerIndex) {
         
         
         const cashoutType = bets[playerIndex].autoCashoutTriggered ? 'AUTO-CASHED OUT!' : 'YOU HAVE CASHED OUT!';
-        const multiplierText = `${currentMultiplier.toFixed(2)}x`;
+        const multiplierText = `${currentMultiplier.toFixed(2)}X`;
         const currencySymbol = getCurrencySymbol(userCurrency);
         const winText = `WIN ${currencySymbol}${winAmount.toFixed(2)}`;
-        showToast(`${cashoutType} ${multiplierText}                    ${winText}`, 'success');
+        showToast(`${cashoutType} ${multiplierText}`, 'success', 0); // Don't auto-hide
     } else {
         showToast('Connection error. Please try again.', 'error');
     }
@@ -1439,15 +1466,55 @@ function getCurrencySymbol(currencyCode) {
     return currencySymbols[currencyCode] || currencyCode;
 }
 
-function showToast(message, type = 'info') {
+function showToast(message, type = 'info', duration = 3000) {
     const toast = elements.toast;
-    toast.textContent = message;
+    if (!toast) return;
+    
+    // Clear existing content
+    toast.innerHTML = '';
+    
+    // Create toast content structure
+    const toastContent = document.createElement('div');
+    toastContent.className = 'toast-content';
+    
+    // Special handling for cashout success message
+    if (type === 'success' && message.includes('CASHED OUT')) {
+        // Parse the message to extract parts
+        const parts = message.split(' ');
+        const cashoutType = parts.slice(0, -1).join(' '); // Everything except last part
+        const multiplier = parts[parts.length - 1]; // Last part is multiplier
+        
+        // Create structured content
+        toastContent.innerHTML = `
+            <span>${cashoutType}</span>
+            <span style="margin-left: auto; margin-right: 20px;">${multiplier}</span>
+        `;
+    } else {
+        toastContent.textContent = message;
+    }
+    
+    // Create close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'toast-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.onclick = () => {
+        toast.classList.remove('show');
+    };
+    
+    // Assemble toast
+    toast.appendChild(toastContent);
+    toast.appendChild(closeBtn);
+    
+    // Set type and show
     toast.className = `toast ${type}`;
     toast.classList.add('show');
     
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
+    // Auto-hide after duration
+    if (duration > 0) {
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, duration);
+    }
 }
 
 // History functions
@@ -2216,3 +2283,432 @@ setTimeout(() => {
         console.log('⚠️ Issues detected - see diagnostic output above');
     }
 }, 3000);
+
+// Settings Sidebar Functions
+function toggleSettingsSidebar() {
+    const sidebar = document.getElementById('settingsSidebar');
+    const overlay = document.getElementById('menuOverlay');
+    
+    if (sidebar && overlay) {
+        const isVisible = sidebar.classList.contains('visible');
+        
+        if (isVisible) {
+            sidebar.classList.remove('visible');
+            overlay.classList.remove('visible');
+        } else {
+            sidebar.classList.add('visible');
+            overlay.classList.add('visible');
+        }
+        
+        console.log('🔧 Settings sidebar toggled');
+    }
+}
+
+function toggleSound() {
+    settingsState.sound = !settingsState.sound;
+    const toggle = document.getElementById('soundToggle');
+    const toggleSwitch = toggle.parentElement;
+    
+    if (settingsState.sound) {
+        toggleSwitch.classList.add('active');
+    } else {
+        toggleSwitch.classList.remove('active');
+        if (window.soundManager) {
+            window.soundManager.stopPlaneSound();
+        }
+    }
+    
+    console.log(`🔊 Sound ${settingsState.sound ? 'enabled' : 'disabled'}`);
+}
+
+function toggleMusic() {
+    settingsState.music = !settingsState.music;
+    const toggle = document.getElementById('musicToggle');
+    const toggleSwitch = toggle.parentElement;
+    
+    if (settingsState.music) {
+        toggleSwitch.classList.add('active');
+        if (window.soundManager) {
+            window.soundManager.playBackgroundMusic();
+        }
+    } else {
+        toggleSwitch.classList.remove('active');
+        if (window.soundManager) {
+            window.soundManager.stopBackgroundMusic();
+        }
+    }
+    
+    console.log(`🎵 Music ${settingsState.music ? 'enabled' : 'disabled'}`);
+}
+
+function toggleAnimation() {
+    settingsState.animation = !settingsState.animation;
+    const toggle = document.getElementById('animationToggle');
+    const toggleSwitch = toggle.parentElement;
+    
+    if (settingsState.animation) {
+        toggleSwitch.classList.add('active');
+        // Show rocket animation
+        if (window.rocketAnimation) {
+            window.rocketAnimation.showRocket();
+        }
+    } else {
+        toggleSwitch.classList.remove('active');
+        // Hide rocket animation, show only multiplier
+        if (window.rocketAnimation) {
+            window.rocketAnimation.hideRocket();
+        }
+    }
+    
+    console.log(`🎬 Animation ${settingsState.animation ? 'enabled' : 'disabled'}`);
+}
+
+// Game Rules Functions
+function showGameRules() {
+    const modal = document.getElementById('gameRulesModal');
+    if (modal) {
+        modal.classList.add('visible');
+        console.log('📖 Game rules modal opened');
+    }
+}
+
+function closeGameRules() {
+    const modal = document.getElementById('gameRulesModal');
+    if (modal) {
+        modal.classList.remove('visible');
+        console.log('📖 Game rules modal closed');
+    }
+}
+
+// Placeholder functions for other settings links
+function showFreeBets() {
+    console.log('🎁 Free Bets clicked');
+    // TODO: Implement free bets functionality
+}
+
+function showBetHistory() {
+    const modal = document.getElementById('betHistoryModal');
+    if (modal) {
+        modal.classList.add('visible');
+        populateBetHistory();
+        console.log('📊 Bet History modal opened');
+    }
+}
+
+function closeBetHistory() {
+    const modal = document.getElementById('betHistoryModal');
+    if (modal) {
+        modal.classList.remove('visible');
+        console.log('📊 Bet History modal closed');
+    }
+}
+
+function populateBetHistory() {
+    const entriesContainer = document.getElementById('betHistoryEntries');
+    if (!entriesContainer) return;
+    
+    // Sample bet history data
+    const betHistory = [
+        { date: '16:21 03-04-25', bet: 100.01, multiplier: 6.94, cashout: 1781.79 },
+        { date: '16:20 03-04-25', bet: 100.01, multiplier: 6.94, cashout: 1781.79 },
+        { date: '16:19 03-04-25', bet: 100.01, multiplier: 6.94, cashout: 1781.79 },
+        { date: '16:18 03-04-25', bet: 100.01, multiplier: 6.94, cashout: 1781.79 }
+    ];
+    
+    entriesContainer.innerHTML = '';
+    
+    betHistory.forEach((entry, index) => {
+        const betEntry = document.createElement('div');
+        betEntry.className = 'bet-entry';
+        // if (index === 2) betEntry.classList.add('selected'); // Highlight third entry
+        
+        betEntry.innerHTML = `
+            <div class="bet-date">${entry.date}</div>
+            <div class="bet-amount">
+                <span class="bet-value">${entry.bet.toFixed(2)}</span>
+                <span class="multiplier-badge">${entry.multiplier}x</span>
+            </div>
+            <div class="cashout-amount">
+                <span>${entry.cashout.toLocaleString()}</span>
+                <div class="bet-actions">
+                    <div class="action-icon shield-icon"></div>
+                    <div class="action-icon chat-icon"></div>
+                </div>
+            </div>
+        `;
+        
+        entriesContainer.appendChild(betEntry);
+    });
+}
+
+function showGameLimits() {
+    console.log('⚖️ Game Limits clicked');
+    // TODO: Implement game limits functionality
+}
+
+// Avatar Selection Functions
+function showAvatarModal() {
+    const modal = document.getElementById('avatarModal');
+    if (modal) {
+        modal.classList.add('visible');
+        populateAvatarGrid();
+        console.log('👤 Avatar selection modal opened');
+    }
+}
+
+function closeAvatarModal() {
+    const modal = document.getElementById('avatarModal');
+    if (modal) {
+        modal.classList.remove('visible');
+        console.log('👤 Avatar selection modal closed');
+    }
+}
+
+function populateAvatarGrid() {
+    const avatarGrid = document.getElementById('avatarGrid');
+    if (!avatarGrid) return;
+    
+    // Sample avatar options (SVG data URLs)
+    const avatarOptions = [
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiMzMzMiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM0Q0FGNTAiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGRjU3MjIiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM5QzI3QjAiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiNGRjk4MDAiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiMwMEJGRkYiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo='
+    ];
+    
+    avatarGrid.innerHTML = '';
+    
+    avatarOptions.forEach((avatarSrc, index) => {
+        const avatarOption = document.createElement('div');
+        avatarOption.className = 'avatar-option';
+        
+        // Check if this avatar matches the current user avatar
+        if (avatarSrc === userState.avatar) {
+            avatarOption.classList.add('selected');
+        }
+        
+        avatarOption.innerHTML = `<img src="${avatarSrc}" alt="Avatar ${index + 1}">`;
+        
+        avatarOption.addEventListener('click', () => {
+            // Remove selected class from all options
+            document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+            // Add selected class to clicked option
+            avatarOption.classList.add('selected');
+            
+            // Update user state
+            userState.avatar = avatarSrc;
+            
+            // Update all avatar instances
+            updateUserAvatar(avatarSrc);
+            
+            console.log(`👤 Avatar ${index + 1} selected`);
+        });
+        
+        avatarGrid.appendChild(avatarOption);
+    });
+}
+
+// User Avatar Management Functions
+function updateUserAvatar(avatarSrc) {
+    // Update sidebar avatar
+    const sidebarAvatar = document.getElementById('currentUserAvatar');
+    if (sidebarAvatar) {
+        sidebarAvatar.src = avatarSrc;
+    }
+    
+    // Update header avatar
+    const headerAvatar = document.getElementById('headerUserAvatar');
+    if (headerAvatar) {
+        headerAvatar.src = avatarSrc;
+    }
+    
+    // Send avatar update to server (if connected)
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            type: 'updateAvatar',
+            avatar: avatarSrc
+        }));
+    }
+}
+
+// Server Response Functions
+function updateUserNameFromServer(userName) {
+    userState.name = userName;
+    
+    // Update header user name
+    const userNameDisplay = document.getElementById('userNameDisplay');
+    if (userNameDisplay) {
+        userNameDisplay.textContent = userName;
+    }
+    
+    // Update sidebar user name
+    const sidebarUserName = document.querySelector('.user-details .user-name');
+    if (sidebarUserName) {
+        sidebarUserName.textContent = userName;
+    }
+    
+    console.log(`👤 User name updated to: ${userName}`);
+}
+
+function updateUserAvatarFromServer(avatarSrc) {
+    userState.avatar = avatarSrc;
+    updateUserAvatar(avatarSrc);
+    console.log(`👤 User avatar updated from server`);
+}
+
+// Handle server user data response
+function handleServerUserData(userData) {
+    if (userData.name) {
+        updateUserNameFromServer(userData.name);
+    }
+    
+    if (userData.avatar) {
+        updateUserAvatarFromServer(userData.avatar);
+    }
+    
+    if (userData.balance !== undefined) {
+        userBalance = userData.balance;
+        updateBalanceDisplay();
+    }
+    
+    console.log('👤 User data updated from server:', userData);
+}
+
+// Flew Away Message Functions
+function showFlewAwayMessage(multiplier) {
+    const blanketOverlay = document.getElementById('blanketOverlay');
+    const multiplierDisplay = elements.multiplierDisplay;
+    
+    if (blanketOverlay && multiplierDisplay) {
+        // Show blanket first
+        blanketOverlay.classList.add('visible');
+        
+        // Update multiplier display for crashed state
+        multiplierDisplay.classList.add('crashed');
+        multiplierDisplay.classList.add('show');
+        
+        // Set the text content directly in the element
+        multiplierDisplay.innerHTML = `FLEW AWAY!<br><span style="color: #00FFFF; font-size: 6.5rem;">${multiplier.toFixed(2)}X</span>`;
+        
+        console.log('✈️ Flew away message shown with multiplier:', multiplier);
+    } else {
+        console.error('❌ Missing elements for flew away message');
+    }
+}
+
+function hideFlewAwayMessage() {
+    const blanketOverlay = document.getElementById('blanketOverlay');
+    const multiplierDisplay = elements.multiplierDisplay;
+    
+    if (blanketOverlay && multiplierDisplay) {
+        // Reset multiplier display first
+        multiplierDisplay.classList.remove('crashed');
+        multiplierDisplay.classList.remove('show');
+        
+        // Hide blanket immediately
+        blanketOverlay.classList.remove('visible');
+        
+        console.log('✈️ Flew away message hidden');
+    } else {
+        console.error('❌ Missing elements for hiding flew away message');
+    }
+}
+
+function showProvablyFair() {
+    console.log('🔒 Provably Fair clicked');
+    // TODO: Implement provably fair functionality
+}
+
+function showGameRoom() {
+    console.log('🏠 Game Room clicked');
+    // TODO: Implement game room functionality
+}
+
+// Initialize settings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize DOM elements
+    elements = {
+        multiplierDisplay: document.getElementById('multiplierDisplay'),
+        gameLogo: document.getElementById('gameLogo'),
+        rocket: document.getElementById('rocket'), // Legacy DOM rocket (fallback)
+        trailContainer: document.getElementById('trailContainer'),
+        gameCanvas: document.getElementById('gameCanvas'),
+        gameStatus: document.getElementById('gameStatus'),
+        toast: document.getElementById('toast'),
+        balance: document.getElementById('balance'),
+        historyItems: document.getElementById('historyItems'),
+        historyItemsMobile: document.getElementById('historyItemsMobile'),
+        historyTrailInGame: document.getElementById('historyTrailInGame'),
+        betList: document.getElementById('betList'),
+        countdownContainer: document.getElementById('countdownContainer'),
+        countdownText: document.getElementById('countdownText'),
+        countdownBar: document.getElementById('countdownBar')
+    };
+    
+
+    
+    // Initialize toggle states
+    const soundToggle = document.getElementById('soundToggle');
+    const musicToggle = document.getElementById('musicToggle');
+    const animationToggle = document.getElementById('animationToggle');
+    
+    if (soundToggle && settingsState.sound) {
+        soundToggle.parentElement.classList.add('active');
+    }
+    
+    if (musicToggle && settingsState.music) {
+        musicToggle.parentElement.classList.add('active');
+    }
+    
+    if (animationToggle && settingsState.animation) {
+        animationToggle.parentElement.classList.add('active');
+    }
+    
+    // Initialize user avatar and name
+    updateUserAvatar(userState.avatar);
+    updateUserNameFromServer(userState.name);
+    
+    // Close modals when clicking outside
+    const gameRulesModal = document.getElementById('gameRulesModal');
+    if (gameRulesModal) {
+        gameRulesModal.addEventListener('click', function(e) {
+            if (e.target === gameRulesModal) {
+                closeGameRules();
+            }
+        });
+    }
+    
+    const betHistoryModal = document.getElementById('betHistoryModal');
+    if (betHistoryModal) {
+        betHistoryModal.addEventListener('click', function(e) {
+            if (e.target === betHistoryModal) {
+                closeBetHistory();
+            }
+        });
+    }
+    
+    const avatarModal = document.getElementById('avatarModal');
+    if (avatarModal) {
+        avatarModal.addEventListener('click', function(e) {
+            if (e.target === avatarModal) {
+                closeAvatarModal();
+            }
+        });
+    }
+    
+    // Close sidebar when clicking overlay
+    const overlay = document.getElementById('menuOverlay');
+    if (overlay) {
+        overlay.addEventListener('click', function() {
+            const sidebar = document.getElementById('settingsSidebar');
+            if (sidebar && sidebar.classList.contains('visible')) {
+                sidebar.classList.remove('visible');
+                overlay.classList.remove('visible');
+            }
+        });
+    }
+    
+    console.log('🔧 Settings system initialized');
+});
