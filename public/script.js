@@ -1571,10 +1571,17 @@ function toggleHistoryExpansion() {
     }
 }
 
+// Track bet item count for alternating colors
+let betItemCount = 0;
+
 function addToBetList(amount, multiplier, winAmount, crashed) {
     const betList = elements.betList;
     const item = document.createElement('div');
-    item.className = crashed ? 'bet-item loss' : 'bet-item bg';
+    
+    // Alternate between 'bg' and 'loss' classes for visual variety
+    betItemCount++;
+    const isEven = betItemCount % 2 === 0;
+    item.className = isEven ? 'bet-item bg' : 'bet-item loss';
     
     const multiplierText = `${multiplier.toFixed(2)}x`;
     const currencySymbol = getCurrencySymbol(userCurrency);
@@ -2383,15 +2390,177 @@ function closeGameRules() {
 // Placeholder functions for other settings links
 function showFreeBets() {
     console.log('🎁 Free Bets clicked');
-    // TODO: Implement free bets functionality
+    
+    // Create and show the Free Bets Management modal
+    const modal = document.createElement('div');
+    modal.className = 'free-bets-modal';
+    modal.innerHTML = `
+        <div class="free-bets-content">
+            <div class="free-bets-header">
+                <h3>Free bets Management</h3>
+                <button class="close-btn" onclick="closeFreeBets()">×</button>
+            </div>
+            <div class="free-bets-body">
+                <div class="play-with-cash-section">
+                    <div class="radio-option selected auto-cashout-checkbox">
+                        <input class="auto-cashout-input" type="checkbox" id="playWithCash" name="betMode" checked>
+                        <label for="playWithCash">Play with Cash</label>
+                    </div>
+                   
+                </div>
+                <div class="active-free-bets-section">
+                    <div class="section-header">
+                        <h4>Active Free bets</h4>
+                        <div class="archive-btn">
+                            <img src="./assets/images/history-grey.svg" alt="History" style="width: 16px; height: 16px;">
+                            Archive
+                        </div>
+                    </div>
+                    <div class="free-bets-list">
+                        <!-- Empty state - no active free bets -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Show modal with animation
+    setTimeout(() => {
+        modal.classList.add('visible');
+    }, 10);
+    
+    // Add auto-cashout functionality using the same logic as main game
+    const autoCashoutCheckbox = modal.querySelector('#freeBetsAutoCashout');
+    const autoCashoutInput = modal.querySelector('#freeBetsAutoCashoutValue');
+    const autoCashoutSection = modal.querySelector('.auto-cashout-section');
+    
+    // Handle checkbox change - same logic as main game
+    autoCashoutCheckbox.addEventListener('change', function() {
+        // Enable/disable input based on checkbox
+        autoCashoutInput.disabled = !this.checked;
+        
+        // Update visual feedback
+        autoCashoutSection.classList.toggle('enabled', this.checked);
+        
+        console.log(`🤖 Free Bets Auto-cashout ${this.checked ? 'enabled' : 'disabled'}`);
+    });
+    
+    // Handle input validation
+    autoCashoutInput.addEventListener('input', function() {
+        let value = parseFloat(this.value);
+        if (value < 1.01) {
+            this.value = '1.01';
+        } else if (value > 1000) {
+            this.value = '1000';
+        }
+    });
+    
+    // Initial state - same as main game
+    autoCashoutInput.disabled = !autoCashoutCheckbox.checked;
+}
+
+function closeFreeBets() {
+    const modal = document.querySelector('.free-bets-modal');
+    if (modal) {
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            document.body.removeChild(modal);
+        }, 300);
+    }
+}
+
+function showGameRoom() {
+    console.log('🏠 Game Room clicked');
+    
+    // Create and show the Change Room modal
+    const modal = document.createElement('div');
+    modal.className = 'change-room-modal';
+    modal.innerHTML = `
+        <div class="change-room-content">
+            <div class="change-room-header">
+                <h3>Change Room</h3>
+                <button class="close-btn" onclick="closeGameRoom()">×</button>
+            </div>
+            <div class="change-room-body">
+                <div class="warning-message">
+                    <p>Changing the room will restart the game.</p>
+                    <p>Do you wish to continue?</p>
+                </div>
+                <div class="room-selection">
+                    <div class="room-option selected">
+                        <input type="radio" id="room1" name="room" checked>
+                        <label for="room1">Room 1</label>
+                    </div>
+                    <div class="room-option">
+                        <input type="radio" id="room2" name="room">
+                        <label for="room2">Room 2</label>
+                    </div>
+                </div>
+                <div class="change-room-actions">
+                    <button class="change-btn" onclick="confirmRoomChange()">Change</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Show modal with animation
+    setTimeout(() => {
+        modal.classList.add('visible');
+    }, 10);
+    
+    // Add room selection functionality
+    const roomOptions = modal.querySelectorAll('.room-option');
+    roomOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            roomOptions.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+        });
+    });
+}
+
+function closeGameRoom() {
+    const modal = document.querySelector('.change-room-modal');
+    if (modal) {
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            document.body.removeChild(modal);
+        }, 300);
+    }
+}
+
+function confirmRoomChange() {
+    const selectedRoom = document.querySelector('.room-option.selected input').id;
+    console.log(`🏠 Room changed to: ${selectedRoom}`);
+    
+    // Update the menu text to reflect the selected room
+    const gameRoomLink = document.querySelector('.setting-link[onclick="showGameRoom()"]');
+    if (gameRoomLink) {
+        const roomNumber = selectedRoom === 'room1' ? '1' : '2';
+        gameRoomLink.textContent = `Game Room: Room #${roomNumber}`;
+    }
+    
+    // Close the modal
+    closeGameRoom();
+    
+    // Show success message
+    showToast(`Successfully switched to ${selectedRoom === 'room1' ? 'Room 1' : 'Room 2'}`, 'success');
 }
 
 function showBetHistory() {
-    const modal = document.getElementById('betHistoryModal');
-    if (modal) {
-        modal.classList.add('visible');
-        populateBetHistory();
-        console.log('📊 Bet History modal opened');
+    // Check if mobile device
+    if (window.innerWidth <= 768) {
+        showMobileBetHistory();
+    } else {
+        const modal = document.getElementById('betHistoryModal');
+        if (modal) {
+            modal.classList.add('visible');
+            populateBetHistory();
+            console.log('📊 Bet History modal opened');
+        }
     }
 }
 
@@ -2440,6 +2609,200 @@ function populateBetHistory() {
         entriesContainer.appendChild(betEntry);
     });
 }
+
+// Mobile Bet History Functions
+function showMobileBetHistory() {
+    // Remove existing mobile modal if present
+    const existingModal = document.getElementById('mobileBetHistoryModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Create mobile bet history modal
+    const modal = document.createElement('div');
+    modal.id = 'mobileBetHistoryModal';
+    modal.className = 'mobile-bet-history-modal';
+    modal.innerHTML = `
+        <div class="mobile-bet-history-content">
+            <div class="mobile-bet-history-status-bar"></div>
+            <div class="mobile-bet-history-header">
+                <div class="main-tabs">
+                    <div class="tab-btn" data-tab="all">All Bets</div>
+                    <div class="tab-btn" data-tab="my">My Bets</div>
+                    <div class="tab-btn active" data-tab="top">Top</div>
+                </div>
+                <div class="close-btn" onclick="closeMobileBetHistory()">×</div>
+            </div>
+            
+            <div class="mobile-bet-history-body">
+                <!-- Win Filters -->
+                <div class="win-filters">
+                    <div class="filter-btn active" data-filter="huge">Huge Wins</div>
+                    <div class="filter-btn" data-filter="biggest">Biggest Wins</div>
+                    <div class="filter-btn" data-filter="multipliers">Multipliers</div>
+                </div>
+                
+                <!-- Date Filters -->
+                <div class="date-filters">
+                    <div class="filter-btn" data-filter="day">Day</div>
+                    <div class="filter-btn active" data-filter="month">Month</div>
+                    <div class="filter-btn" data-filter="year">Year</div>
+                </div>
+                
+                <!-- Bet Records -->
+                <div class="bet-records-container">
+                    <div class="bet-records-list" id="mobileBetRecordsList">
+                        <!-- Bet records will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Add event listeners
+    setupMobileBetHistoryTabs();
+    populateMobileBetHistory();
+    
+    // Show modal
+    setTimeout(() => {
+        modal.classList.add('visible');
+    }, 10);
+    
+    console.log('📱 Mobile Bet History modal opened');
+}
+
+function closeMobileBetHistory() {
+    const modal = document.getElementById('mobileBetHistoryModal');
+    if (modal) {
+        modal.classList.remove('visible');
+        setTimeout(() => {
+            modal.remove();
+        }, 300);
+        console.log('📱 Mobile Bet History modal closed');
+    }
+}
+
+function setupMobileBetHistoryTabs() {
+    // Main tabs
+    const mainTabs = document.querySelectorAll('.main-tabs .tab-btn');
+    mainTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            mainTabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            populateMobileBetHistory();
+        });
+    });
+    
+    // Win filters
+    const winFilters = document.querySelectorAll('.win-filters .filter-btn');
+    winFilters.forEach(filter => {
+        filter.addEventListener('click', function() {
+            winFilters.forEach(f => f.classList.remove('active'));
+            this.classList.add('active');
+            populateMobileBetHistory();
+        });
+    });
+    
+    // Date filters
+    const dateFilters = document.querySelectorAll('.date-filters .filter-btn');
+    dateFilters.forEach(filter => {
+        filter.addEventListener('click', function() {
+            dateFilters.forEach(f => f.classList.remove('active'));
+            this.classList.add('active');
+            populateMobileBetHistory();
+        });
+    });
+}
+
+function populateMobileBetHistory() {
+    const recordsList = document.getElementById('mobileBetRecordsList');
+    if (!recordsList) return;
+    
+    // Sample bet records data - matching the image exactly
+    const betRecords = [
+        {
+            username: 'N**5',
+            avatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM4QjQ1M0QiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+            betAmount: 28.20,
+            cashoutMultiplier: 6675.17,
+            winAmount: 188283.81,
+            date: '03 apr',
+            roundId: '20045.97x',
+            hasTarget: false
+        },
+        {
+            username: 'N**5',
+            avatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM4QjQ1M0QiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+            betAmount: 15.50,
+            cashoutMultiplier: 3456.78,
+            winAmount: 53580.09,
+            date: '02 apr',
+            roundId: '19876.23x',
+            hasTarget: true
+        },
+        {
+            username: 'N**5',
+            avatar: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMjAiIGZpbGw9IiM4QjQ1M0QiLz4KPGNpcmNsZSBjeD0iMjAiIGN5PSIxNiIgcj0iNiIgZmlsbD0iI2ZmZiIvPgo8cGF0aCBkPSJNOCAzNGMwLTYuNjI3IDUuMzczLTEyIDEyLTEyczEyIDUuMzczIDEyIDEyIiBmaWxsPSIjZmZmIi8+Cjwvc3ZnPgo=',
+            betAmount: 42.80,
+            cashoutMultiplier: 1234.56,
+            winAmount: 52839.17,
+            date: '01 apr',
+            roundId: '19765.44x',
+            hasTarget: false
+        }
+    ];
+    
+    recordsList.innerHTML = '';
+    
+    betRecords.forEach(record => {
+        const recordCard = document.createElement('div');
+        recordCard.className = 'bet-record-card';
+        
+        recordCard.innerHTML = `
+            <div class="record-left">
+                <div class="user-avatar">
+                    <img src="${record.avatar}" alt="User Avatar">
+                </div>
+                <div class="username">${record.username}</div>
+            </div>
+            <div class="record-right">
+                <div class="bet-info">
+                    <div class="bet-amount">
+                        <span class="bet-amount-label">Bet INR</span>
+                        <span class="bet-amount-value">${record.betAmount.toFixed(2)}</span>
+                    </div>
+                    <div class="cashout-info">
+                        <span class="cashout-label">Cashed out</span>
+                        <span class="cashout-multiplier">${record.cashoutMultiplier.toFixed(2)}x</span>
+                    </div>
+                    <div class="win-info">
+                        <span class="win-label">Win INR</span>
+                        <div style="display: flex; align-items: center;">
+                            <span class="win-amount">${record.winAmount.toLocaleString()}</span>
+                            ${record.hasTarget ? '<div class="target-icon"></div>' : ''}
+                        </div>
+                    </div>
+                </div>
+                <div class="record-bottom">
+                    <div style="display: flex; align-items: center;">
+                        <span class="record-date">${record.date}</span>
+                        <span class="round-info">Round : ${record.roundId}</span>
+                    </div>
+                    <div class="record-actions">
+                        <div class="action-icon shield-icon"></div>
+                        <div class="action-icon chat-icon"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        recordsList.appendChild(recordCard);
+    });
+}
+
+
 
 function showGameLimits() {
     console.log('⚖️ Game Limits clicked');
@@ -2621,11 +2984,6 @@ function showProvablyFair() {
     // TODO: Implement provably fair functionality
 }
 
-function showGameRoom() {
-    console.log('🏠 Game Room clicked');
-    // TODO: Implement game room functionality
-}
-
 // Initialize settings on page load
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize DOM elements
@@ -2646,8 +3004,6 @@ document.addEventListener('DOMContentLoaded', function() {
         countdownText: document.getElementById('countdownText'),
         countdownBar: document.getElementById('countdownBar')
     };
-    
-
     
     // Initialize toggle states
     const soundToggle = document.getElementById('soundToggle');
@@ -2710,5 +3066,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Initialize PixiJS integration
+    checkPixiJSStatus();
+    
+    // Initialize WebSocket connection
+    initializeWebSocket();
+    
+    console.log('🎮 Game initialized successfully');
     console.log('🔧 Settings system initialized');
 });
+
+
+
+
+
+
