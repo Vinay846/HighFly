@@ -101,8 +101,9 @@ class SoundManager {
         };
         
         document.addEventListener('visibilitychange', handleVisibilityChange);
-        window.addEventListener('blur', handleBlur);
-        window.addEventListener('focus', handleFocus);
+        // Disabled blur/focus handlers to prevent sound stopping when clicking dev tools
+        // window.addEventListener('blur', handleBlur);
+        // window.addEventListener('focus', handleFocus);
         
         // Store handlers for cleanup
         this.visibilityHandlers = {

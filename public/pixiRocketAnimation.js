@@ -242,18 +242,19 @@ class PixiRocketAnimationSystem {
             }, 100); // Debounce resize events
         });
 
-        // Tab visibility
+        // Tab visibility - only pause when page is actually hidden, not on blur/focus
         document.addEventListener('visibilitychange', () => {
             this.handleVisibilityChange();
         });
         
-        window.addEventListener('blur', () => {
-            this.tabVisible = false;
-        });
+        // Remove blur/focus handlers that cause animation to stop when clicking dev tools
+        // window.addEventListener('blur', () => {
+        //     this.tabVisible = false;
+        // });
         
-        window.addEventListener('focus', () => {
-            this.tabVisible = true;
-        });
+        // window.addEventListener('focus', () => {
+        //     this.tabVisible = true;
+        // });
 
         // Touch events for mobile devices
         if ('ontouchstart' in window) {

@@ -1812,20 +1812,20 @@ document.addEventListener('visibilitychange', function() {
     }
 });
 
-// Additional blur/focus handlers for backup
-window.addEventListener('blur', function() {
-    if (isTabVisible) {
-        isTabVisible = false;
-        console.log('🔄 Window blur detected');
-    }
-});
+// Additional blur/focus handlers for backup - DISABLED to prevent animation stopping when clicking dev tools
+// window.addEventListener('blur', function() {
+//     if (isTabVisible) {
+//         isTabVisible = false;
+//         console.log('🔄 Window blur detected');
+//     }
+// });
 
-window.addEventListener('focus', function() {
-    if (!isTabVisible) {
-        isTabVisible = true;
-        console.log('🔄 Window focus detected');
-    }
-});
+// window.addEventListener('focus', function() {
+//     if (!isTabVisible) {
+//         isTabVisible = true;
+//         console.log('🔄 Window focus detected');
+//     }
+// });
 
 // Unfinished game handling
 function saveGameState() {
